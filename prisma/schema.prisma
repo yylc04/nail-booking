@@ -32,6 +32,8 @@ model Store {
   id             String   @id @default(cuid())
   name           String   @default("我的美甲店")
   logo           String?  @db.Text
+  address        String?
+  bookingNotes   String?  @db.Text
   depositEnabled Boolean  @default(false)
   depositAmount  Int      @default(0)
   createdAt      DateTime @default(now())
@@ -39,6 +41,7 @@ model Store {
 
   businessHours  BusinessHour[]
   businessSlots  BusinessSlot[]
+  dailySlots     DailySlot[]
   exceptionDates ExceptionDate[]
   bankAccounts   BankAccount[]
 }
@@ -54,15 +57,28 @@ model BusinessHour {
   @@unique([storeId, dayOfWeek])
 }
 
+// Weekly template slots (for 一鍵帶入)
 model BusinessSlot {
   id        String @id @default(cuid())
   storeId   String
   dayOfWeek Int
-  time      String // "10:00"
+  time      String
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, dayOfWeek, time])
+}
+
+// Per-date actual bookable slots
+model DailySlot {
+  id      String   @id @default(cuid())
+  storeId String
+  date    DateTime @db.Date
+  time    String
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, date, time])
 }
 
 model ExceptionDate {

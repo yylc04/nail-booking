@@ -17,14 +17,16 @@ interface Category { id: string; name: string; services: Service[] }
 interface CartItem extends Service { qty: number }
 interface BankAccount { bankName: string; accountNumber: string; accountName: string }
 interface DepositInfo { depositEnabled: boolean; depositAmount: number; bankAccounts: BankAccount[] }
+interface StoreInfo { name: string; logo?: string; address?: string; bookingNotes?: string }
 
 const STEPS = ['選擇服務', '選擇時段', '填寫資料', '完成預約']
 
 export default function BookPage() {
   const [step, setStep] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
-  const [store, setStore] = useState<{ name: string; logo?: string } | null>(null)
+  const [store, setStore] = useState<StoreInfo | null>(null)
   const [depositInfo, setDepositInfo] = useState<DepositInfo | null>(null)
+  const [agreedToNotes, setAgreedToNotes] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
   const [calMonth, setCalMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -86,6 +88,7 @@ export default function BookPage() {
 
   async function handleSubmit() {
     if (!name || !phone || !selectedDate || !selectedSlot) return toast.error('請填寫所有必填欄位')
+    if (store?.bookingNotes && !agreedToNotes) return toast.error('請先勾選同意注意事項')
     setSubmitting(true)
     const services = cart.flatMap(i =>
       Array.from({ length: i.qty }, () => ({ serviceId: i.id, name: i.name, price: i.price, duration: i.duration }))
@@ -123,7 +126,7 @@ export default function BookPage() {
   function resetAll() {
     setStep(0); setCart([]); setSelectedDate(null); setSelectedSlot(null)
     setDone(false); setShowDeposit(false); setApptId(''); setTransferCode('')
-    setName(''); setPhone(''); setNotes('')
+    setName(''); setPhone(''); setNotes(''); setAgreedToNotes(false)
   }
 
   const today = startOfDay(new Date())
@@ -190,17 +193,23 @@ export default function BookPage() {
   if (done) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-fuchsia-50 flex items-center justify-center p-4">
-        <div className="text-center max-w-sm">
+        <div className="text-center max-w-sm w-full">
           <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
             <Check className="w-10 h-10 text-green-500" />
           </div>
           <h2 className="text-2xl font-bold text-foreground mb-2">預約成功！</h2>
           <p className="text-muted-foreground mb-1">您的預約編號：</p>
-          <p className="text-xs text-muted-foreground font-mono bg-accent/50 rounded-lg px-3 py-1 inline-block mb-6">{apptId}</p>
-          <p className="text-sm text-muted-foreground mb-6">
+          <p className="text-xs text-muted-foreground font-mono bg-accent/50 rounded-lg px-3 py-1 inline-block mb-4">{apptId}</p>
+          <p className="text-sm text-muted-foreground mb-4">
             {format(selectedDate!, 'yyyy年M月d日', { locale: zhTW })} {selectedSlot} <br />
             {cart.map(i => `${i.name}${i.qty > 1 ? ` x${i.qty}` : ''}`).join('、')}
           </p>
+          {store?.address && (
+            <div className="flex items-center justify-center gap-2 text-sm text-foreground bg-white border border-border/50 rounded-xl px-4 py-3 mb-6 shadow-sm">
+              <Wand2 className="w-4 h-4 text-primary shrink-0" />
+              <span>{store.address}</span>
+            </div>
+          )}
           <div className="flex gap-3 justify-center flex-wrap">
             <Button variant="outline" onClick={resetAll}>再次預約</Button>
             <Button onClick={() => window.location.href = '/book/login'}>查看我的預約</Button>
@@ -407,9 +416,34 @@ export default function BookPage() {
               </CardContent>
             </Card>
 
+            {/* Booking notes agreement */}
+            {store?.bookingNotes && (
+              <Card className="border-amber-200/70 bg-amber-50/50 shadow-sm">
+                <CardContent className="p-4 space-y-3">
+                  <p className="text-sm font-semibold text-amber-900">預約注意事項</p>
+                  <div className="text-xs text-amber-800 whitespace-pre-line leading-relaxed bg-white/60 rounded-xl p-3 border border-amber-200/50">
+                    {store.bookingNotes}
+                  </div>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={agreedToNotes}
+                      onChange={e => setAgreedToNotes(e.target.checked)}
+                      className="mt-0.5 accent-primary w-4 h-4 shrink-0"
+                    />
+                    <span className="text-xs text-amber-900 font-medium">我已閱讀並同意以上注意事項</span>
+                  </label>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
-              <Button className="flex-1" disabled={submitting} onClick={handleSubmit}>
+              <Button
+                className="flex-1"
+                disabled={submitting || (!!store?.bookingNotes && !agreedToNotes)}
+                onClick={handleSubmit}
+              >
                 {submitting ? '送出中...' : '確認預約'}
               </Button>
             </div>

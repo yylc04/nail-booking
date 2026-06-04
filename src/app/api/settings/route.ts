@@ -26,19 +26,20 @@ export async function PUT(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { name, logo, businessHours, businessSlots, exceptionDates, depositEnabled, depositAmount, bankAccounts } = body
+  const { name, logo, address, bookingNotes, businessHours, businessSlots, exceptionDates, depositEnabled, depositAmount, bankAccounts } = body
 
   const store = await prisma.store.update({
     where: { id: STORE_ID },
     data: {
       ...(name !== undefined ? { name } : {}),
       ...(logo !== undefined ? { logo } : {}),
+      ...(address !== undefined ? { address } : {}),
+      ...(bookingNotes !== undefined ? { bookingNotes } : {}),
       ...(depositEnabled !== undefined ? { depositEnabled } : {}),
       ...(depositAmount !== undefined ? { depositAmount: Number(depositAmount) } : {}),
     },
   })
 
-  // Sync business hours (open/closed per day)
   if (businessHours) {
     for (const h of businessHours) {
       await prisma.businessHour.upsert({
@@ -49,22 +50,19 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  // Sync business slots (manual time slots per day)
-  if (businessSlots) {
+  // Sync weekly template slots (BusinessSlot)
+  if (businessSlots !== undefined) {
     await prisma.businessSlot.deleteMany({ where: { storeId: STORE_ID } })
     if (businessSlots.length > 0) {
       await prisma.businessSlot.createMany({
         data: businessSlots.map((s: { dayOfWeek: number; time: string }) => ({
-          storeId: STORE_ID,
-          dayOfWeek: s.dayOfWeek,
-          time: s.time,
+          storeId: STORE_ID, dayOfWeek: s.dayOfWeek, time: s.time,
         })),
         skipDuplicates: true,
       })
     }
   }
 
-  // Sync exception dates
   if (exceptionDates !== undefined) {
     const validDates = exceptionDates.filter((e: { date: string }) => e.date)
     const dbDates = validDates.map((e: { date: string }) => new Date(e.date))
@@ -80,17 +78,12 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  // Sync bank accounts
   if (bankAccounts !== undefined) {
     await prisma.bankAccount.deleteMany({ where: { storeId: STORE_ID } })
     if (bankAccounts.length > 0) {
       await prisma.bankAccount.createMany({
         data: bankAccounts.map((b: { bankName: string; accountNumber: string; accountName: string }, i: number) => ({
-          storeId: STORE_ID,
-          bankName: b.bankName,
-          accountNumber: b.accountNumber,
-          accountName: b.accountName,
-          order: i,
+          storeId: STORE_ID, bankName: b.bankName, accountNumber: b.accountNumber, accountName: b.accountName, order: i,
         })),
       })
     }

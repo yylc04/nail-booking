@@ -16,23 +16,16 @@ export async function GET(req: NextRequest) {
   if (!dateStr) return NextResponse.json({ error: 'date required' }, { status: 400 })
 
   const date = new Date(dateStr)
-  const dayOfWeek = date.getDay()
 
-  // Check exception date (closed days override everything)
+  // Check exception date (closed days)
   const exception = await prisma.exceptionDate.findUnique({
     where: { storeId_date: { storeId: STORE_ID, date } },
   })
   if (exception?.isClosed) return NextResponse.json({ slots: [], closed: true })
 
-  // Check weekly open/closed status
-  const bh = await prisma.businessHour.findUnique({
-    where: { storeId_dayOfWeek: { storeId: STORE_ID, dayOfWeek } },
-  })
-  if (bh && !bh.isOpen) return NextResponse.json({ slots: [], closed: true })
-
-  // Get manually configured time slots for this day of week
-  const daySlots = await prisma.businessSlot.findMany({
-    where: { storeId: STORE_ID, dayOfWeek },
+  // Get daily slots for this specific date
+  const daySlots = await prisma.dailySlot.findMany({
+    where: { storeId: STORE_ID, date },
     orderBy: { time: 'asc' },
   })
 

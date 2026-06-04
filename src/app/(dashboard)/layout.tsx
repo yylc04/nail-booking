@@ -1,9 +1,14 @@
 import { redirect } from 'next/navigation'
+import { unstable_noStore as noStore } from 'next/cache'
 import { getStoreSession } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Sidebar } from '@/components/sidebar'
 
+// Force fresh data on every render so sidebar always reflects latest store name/logo
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  noStore()
   const session = await getStoreSession()
   if (!session) redirect('/login')
 
