@@ -151,13 +151,13 @@ export default function AppointmentsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <ClipboardList className="w-6 h-6 text-primary" />
           <h1 className="text-xl font-bold">預約清單</h1>
         </div>
-        <Button onClick={openCreate} className="gap-2">
+        <Button onClick={openCreate} className="gap-2 min-h-[44px]">
           <Plus className="w-4 h-4" /> 新增預約
         </Button>
       </div>
@@ -167,7 +167,7 @@ export default function AppointmentsPage() {
         <Input
           value={search} onChange={e => setSearch(e.target.value)}
           placeholder="搜尋客戶姓名或電話..."
-          className="pl-9"
+          className="pl-9 min-h-[44px]"
         />
       </div>
 
@@ -180,58 +180,73 @@ export default function AppointmentsPage() {
           ) : (
             <div className="divide-y divide-border/50">
               {appointments.map(a => (
-                <div key={a.id} className="flex items-start justify-between p-4 hover:bg-accent/30 transition-colors gap-4">
-                  <div className="flex items-start gap-4 flex-1 min-w-0">
-                    <div className="text-center w-12 shrink-0">
+                <div key={a.id} className="p-4 hover:bg-accent/30 transition-colors">
+                  <div className="flex items-start gap-3">
+                    {/* Date column */}
+                    <div className="text-center w-11 shrink-0">
                       <p className="text-xs text-muted-foreground">{format(new Date(a.date), 'M月')}</p>
-                      <p className="text-xl font-bold text-primary">{format(new Date(a.date), 'd')}</p>
+                      <p className="text-xl font-bold text-primary leading-tight">{format(new Date(a.date), 'd')}</p>
                     </div>
+                    {/* Main content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                        <p className="text-sm font-semibold">{a.customer.name}</p>
-                        <span className="text-xs text-muted-foreground">{a.customer.phone}</span>
-                        {a.customer.lineName && <span className="text-xs text-muted-foreground">Line：{a.customer.lineName}</span>}
-                        {a.customer.lineOrIg && <span className="text-xs text-muted-foreground">@{a.customer.lineOrIg}</span>}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <p className="text-sm font-semibold">{a.customer.name}</p>
+                            <span className="text-xs text-muted-foreground">{a.customer.phone}</span>
+                          </div>
+                          {(a.customer.lineName || a.customer.lineOrIg) && (
+                            <p className="text-xs text-muted-foreground mb-0.5">
+                              {a.customer.lineName && <span className="mr-2">Line：{a.customer.lineName}</span>}
+                              {a.customer.lineOrIg && <span>@{a.customer.lineOrIg}</span>}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            {a.startTime} – {a.endTime}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{a.services.map(s => s.serviceName).join('、')}</p>
+                          <p className="text-xs font-medium text-primary mt-0.5">NT$ {a.totalPrice.toLocaleString()}</p>
+                          {a.transferCode && (
+                            <p className="text-xs mt-1">
+                              <span className="text-muted-foreground">匯款末五碼：</span>
+                              <span className="font-mono font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">{a.transferCode}</span>
+                            </p>
+                          )}
+                        </div>
+                        {/* Actions: top-right on all screens */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => openEdit(a)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={() => setDeleteId(a.id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {a.startTime} – {a.endTime} · {a.services.map(s => s.serviceName).join('、')}
-                      </p>
-                      <p className="text-xs font-medium text-primary mt-0.5">NT$ {a.totalPrice.toLocaleString()}</p>
-                      {a.transferCode && (
-                        <p className="text-xs mt-1">
-                          <span className="text-muted-foreground">匯款末五碼：</span>
-                          <span className="font-mono font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">{a.transferCode}</span>
-                        </p>
-                      )}
+                      {/* Status + confirm row */}
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <Badge variant="outline" className={`text-xs ${STATUS_COLOR[a.status]}`}>
+                          {STATUS_LABEL[a.status]}
+                        </Badge>
+                        {a.transferCode && a.status === 'PENDING' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                            onClick={async () => {
+                              const res = await fetch(`/api/appointments/${a.id}`, {
+                                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'CONFIRMED' }),
+                              })
+                              if (res.ok) { toast.success('已確認收款'); fetchData() }
+                              else toast.error('操作失敗')
+                            }}
+                          >
+                            <CheckCircle className="w-3 h-3" /> 確認收款
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                    <Badge variant="outline" className={`text-xs ${STATUS_COLOR[a.status]}`}>
-                      {STATUS_LABEL[a.status]}
-                    </Badge>
-                    {a.transferCode && a.status === 'PENDING' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50"
-                        onClick={async () => {
-                          const res = await fetch(`/api/appointments/${a.id}`, {
-                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ status: 'CONFIRMED' }),
-                          })
-                          if (res.ok) { toast.success('已確認收款'); fetchData() }
-                          else toast.error('操作失敗')
-                        }}
-                      >
-                        <CheckCircle className="w-3 h-3" /> 確認收款
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(a.id)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
                   </div>
                 </div>
               ))}
@@ -242,7 +257,7 @@ export default function AppointmentsPage() {
 
       {/* Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-auto">
           <DialogHeader>
             <DialogTitle>{editing ? '編輯預約' : '新增預約'}</DialogTitle>
           </DialogHeader>
@@ -260,14 +275,14 @@ export default function AppointmentsPage() {
                 </Select>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>日期 <span className="text-destructive">*</span></Label>
-                <Input type="date" value={fDate} onChange={e => setFDate(e.target.value)} />
+                <Input type="date" value={fDate} onChange={e => setFDate(e.target.value)} className="min-h-[44px]" />
               </div>
               <div className="space-y-2">
                 <Label>開始時間 <span className="text-destructive">*</span></Label>
-                <Input type="time" value={fStartTime} onChange={e => setFStartTime(e.target.value)} />
+                <Input type="time" value={fStartTime} onChange={e => setFStartTime(e.target.value)} className="min-h-[44px]" />
               </div>
             </div>
             {editing && (

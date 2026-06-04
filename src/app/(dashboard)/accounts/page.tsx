@@ -123,7 +123,7 @@ export default function AccountsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <UserCog className="w-6 h-6 text-primary" />
@@ -132,7 +132,7 @@ export default function AccountsPage() {
             <p className="text-xs text-muted-foreground">僅超級管理員可操作</p>
           </div>
         </div>
-        <Button onClick={() => { setFUsername(''); setFPassword(''); setShowCreate(true) }} className="gap-2">
+        <Button onClick={() => { setFUsername(''); setFPassword(''); setShowCreate(true) }} className="gap-2 min-h-[44px]">
           <Plus className="w-4 h-4" /> 新增帳號
         </Button>
       </div>

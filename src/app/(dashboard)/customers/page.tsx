@@ -73,20 +73,20 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Users className="w-6 h-6 text-primary" />
           <h1 className="text-xl font-bold">客戶管理</h1>
         </div>
-        <Button onClick={openCreate} className="gap-2">
+        <Button onClick={openCreate} className="gap-2 min-h-[44px]">
           <Plus className="w-4 h-4" /> 新增客戶
         </Button>
       </div>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名或電話..." className="pl-9" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名或電話..." className="pl-9 w-full min-h-[44px]" />
       </div>
 
       <Card className="border-border/50 shadow-sm">
@@ -98,38 +98,43 @@ export default function CustomersPage() {
           ) : (
             <div className="divide-y divide-border/50">
               {customers.map(c => (
-                <div key={c.id} className="flex items-center justify-between p-4 hover:bg-accent/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                <div key={c.id} className="p-4 hover:bg-accent/30 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0 mt-0.5">
                       {c.name.charAt(0)}
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
-                      {(c.lineName || c.lineOrIg) && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {c.lineName && <span className="mr-2">Line：{c.lineName}</span>}
-                          {c.lineOrIg && <span>@{c.lineOrIg}</span>}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-6 text-right">
-                    <div>
-                      <p className="text-xs text-muted-foreground">累積次數</p>
-                      <p className="text-sm font-bold text-foreground">{c.appointmentCount} 次</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">累積消費</p>
-                      <p className="text-sm font-bold text-primary">NT$ {c.totalSpent.toLocaleString()}</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(c.id)}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold">{c.name}</p>
+                          <p className="text-xs text-muted-foreground">{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
+                          {(c.lineName || c.lineOrIg) && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {c.lineName && <span className="mr-2">Line：{c.lineName}</span>}
+                              {c.lineOrIg && <span>@{c.lineOrIg}</span>}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => openEdit(c)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={() => setDeleteId(c.id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      {/* Stats row */}
+                      <div className="flex items-center gap-4 mt-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground">預約</span>
+                          <span className="text-xs font-bold text-foreground">{c.appointmentCount} 次</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground">消費</span>
+                          <span className="text-xs font-bold text-primary">NT$ {c.totalSpent.toLocaleString()}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

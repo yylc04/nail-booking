@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   // No store assigned (e.g. SUPER_ADMIN) - show empty dashboard
   if (!storeId) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
         <div className="flex items-center gap-3">
           <Sparkles className="w-6 h-6 text-primary" />
           <div>
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
   ]
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex items-center gap-3">
         <Sparkles className="w-6 h-6 text-primary" />
         <div>

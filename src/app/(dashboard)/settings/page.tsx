@@ -273,13 +273,13 @@ export default function SettingsPage() {
   }))
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6 max-w-3xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Settings className="w-6 h-6 text-primary" />
           <h1 className="text-xl font-bold">營業設定</h1>
         </div>
-        <Button onClick={handleSave} disabled={globalSaving}>{globalSaving ? '儲存中...' : '儲存設定'}</Button>
+        <Button onClick={handleSave} disabled={globalSaving} className="min-h-[44px]">{globalSaving ? '儲存中...' : '儲存設定'}</Button>
       </div>
 
       {/* ── Store info ── */}
@@ -373,7 +373,7 @@ export default function SettingsPage() {
           {calLoading ? (
             <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">載入中...</div>
           ) : (
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
               {Array.from({ length: startPad }).map((_, i) => <div key={`p${i}`} />)}
               {days.map(day => {
                 const key = format(day, 'yyyy-MM-dd')
@@ -387,22 +387,24 @@ export default function SettingsPage() {
                   <button
                     key={key}
                     onClick={() => openDayModal(day)}
-                    className={`relative min-h-[72px] p-1.5 rounded-xl text-left transition-all hover:ring-2 hover:ring-primary/30 ${
+                    className={`relative min-h-[56px] sm:min-h-[72px] p-1 sm:p-1.5 rounded-lg sm:rounded-xl text-left transition-all active:scale-95 hover:ring-2 hover:ring-primary/30 ${
                       isToday ? 'ring-2 ring-primary/50' : ''
                     } ${isPast ? 'opacity-50' : ''} bg-white border border-border/40`}
                   >
-                    <span className={`text-xs font-bold block mb-1 ${isToday ? 'text-primary' : 'text-foreground'}`}>
+                    <span className={`text-xs font-bold block mb-0.5 ${isToday ? 'text-primary' : 'text-foreground'}`}>
                       {format(day, 'd')}
                     </span>
                     {isClosed ? (
-                      <span className="text-[10px] bg-red-100 text-red-600 rounded px-1 py-0.5 font-medium">公休</span>
+                      <span className="text-[9px] sm:text-[10px] bg-red-100 text-red-600 rounded px-0.5 sm:px-1 py-0.5 font-medium">公休</span>
                     ) : daySlots.length > 0 ? (
                       <div className="space-y-0.5">
-                        {daySlots.slice(0, 2).map(t => (
-                          <span key={t} className="block text-[10px] bg-pink-100 text-pink-700 rounded px-1 py-0.5 leading-tight">{t}</span>
-                        ))}
-                        {daySlots.length > 2 && (
-                          <span className="text-[10px] text-muted-foreground">+{daySlots.length - 2}</span>
+                        <span className="hidden sm:block text-[10px] bg-pink-100 text-pink-700 rounded px-1 py-0.5 leading-tight">{daySlots[0]}</span>
+                        <span className="sm:hidden block w-2 h-2 rounded-full bg-pink-400 mx-auto" />
+                        {daySlots.length > 1 && (
+                          <span className="hidden sm:block text-[10px] text-muted-foreground">+{daySlots.length - 1}</span>
+                        )}
+                        {daySlots.length > 1 && (
+                          <span className="sm:hidden text-[9px] text-muted-foreground block text-center">×{daySlots.length}</span>
                         )}
                       </div>
                     ) : null}
@@ -429,11 +431,11 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2 flex-wrap">
-            <select value={tplDay} onChange={e => setTplDay(Number(e.target.value))} className="text-sm border border-border rounded-xl px-3 py-2 bg-background">
+            <select value={tplDay} onChange={e => setTplDay(Number(e.target.value))} className="text-sm border border-border rounded-xl px-3 py-2 bg-background min-h-[44px]">
               {DAYS_ZH.map((d, i) => <option key={i} value={i}>{d}</option>)}
             </select>
-            <Input type="time" value={tplTime} onChange={e => setTplTime(e.target.value)} className="w-32" />
-            <Button onClick={addTemplate} variant="outline" className="gap-1"><Plus className="w-3.5 h-3.5" /> 新增</Button>
+            <Input type="time" value={tplTime} onChange={e => setTplTime(e.target.value)} className="w-32 min-h-[44px]" />
+            <Button onClick={addTemplate} variant="outline" className="gap-1 min-h-[44px]"><Plus className="w-3.5 h-3.5" /> 新增</Button>
           </div>
           <div className="space-y-2">
             {tplsByDay.filter(d => d.slots.length > 0).map(({ day, slots: ts }) => (

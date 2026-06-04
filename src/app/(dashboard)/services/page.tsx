@@ -100,18 +100,18 @@ export default function ServicesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Gem className="w-6 h-6 text-primary" />
           <h1 className="text-xl font-bold">服務項目</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setNewCatName(''); setShowCatForm(true) }} className="gap-2">
-            <Tag className="w-4 h-4" /> 管理分類
+          <Button variant="outline" onClick={() => { setNewCatName(''); setShowCatForm(true) }} className="gap-1.5 min-h-[44px] px-3 text-sm">
+            <Tag className="w-4 h-4" /> <span className="hidden sm:inline">管理</span>分類
           </Button>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="w-4 h-4" /> 新增服務
+          <Button onClick={openCreate} className="gap-1.5 min-h-[44px] px-3 text-sm">
+            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">新增</span>服務
           </Button>
         </div>
       </div>
@@ -143,7 +143,7 @@ export default function ServicesPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {cat.services.map(svc => (
-                      <div key={svc.id} className="relative p-3 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-accent/30 transition-all group">
+                      <div key={svc.id} className="p-3 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-accent/30 transition-all">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -153,15 +153,17 @@ export default function ServicesPage() {
                             <p className="text-xs text-muted-foreground mt-0.5">{svc.duration} 分鐘</p>
                             {svc.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{svc.description}</p>}
                           </div>
-                          <p className="text-sm font-bold text-primary shrink-0">NT$ {svc.price.toLocaleString()}</p>
-                        </div>
-                        <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEdit(svc, cat.name)}>
-                            <Pencil className="w-3 h-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setDeleteId(svc.id)}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <p className="text-sm font-bold text-primary">NT$ {svc.price.toLocaleString()}</p>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(svc, cat.name)}>
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(svc.id)}>
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}

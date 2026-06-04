@@ -277,14 +277,14 @@ export default function BookPage() {
                         <div className="flex items-center gap-1.5 shrink-0">
                           {inCart && (
                             <>
-                              <button onClick={() => removeFromCart(svc.id)} className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors">
-                                <X className="w-3 h-3" />
+                              <button onClick={() => removeFromCart(svc.id)} className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                                <X className="w-3.5 h-3.5" />
                               </button>
                               <span className="text-sm font-bold w-5 text-center">{inCart.qty}</span>
                             </>
                           )}
-                          <button onClick={() => addToCart(svc)} className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors">
-                            <span className="text-lg leading-none">+</span>
+                          <button onClick={() => addToCart(svc)} className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors">
+                            <span className="text-xl leading-none">+</span>
                           </button>
                         </div>
                       </div>
@@ -307,7 +307,7 @@ export default function BookPage() {
                       <p className="text-sm font-bold text-primary">NT$ {totalPrice.toLocaleString()}</p>
                     </div>
                   </div>
-                  <Button className="w-full" onClick={() => setStep(1)}>選擇日期時段</Button>
+                  <Button className="w-full min-h-[48px] text-base" onClick={() => setStep(1)}>選擇日期時段</Button>
                 </CardContent>
               </Card>
             )}
@@ -367,11 +367,11 @@ export default function BookPage() {
                   ) : slots.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">當天已無可用時段</p>
                   ) : (
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {slots.map(slot => (
                         <button
                           key={slot} onClick={() => setSelectedSlot(slot)}
-                          className={`py-2 px-1 rounded-xl text-sm font-medium transition-all border ${
+                          className={`min-h-[44px] px-1 rounded-xl text-sm font-medium transition-all border ${
                             selectedSlot === slot ? 'bg-primary text-white border-primary shadow-sm' : 'border-border hover:border-primary/50 hover:bg-accent'
                           }`}
                         >
@@ -385,8 +385,8 @@ export default function BookPage() {
             )}
 
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setStep(0)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
-              <Button className="flex-1" disabled={!selectedSlot} onClick={() => setStep(2)}>下一步 <ChevronRight className="w-4 h-4 ml-1" /></Button>
+              <Button variant="outline" className="flex-1 min-h-[48px]" onClick={() => setStep(0)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
+              <Button className="flex-1 min-h-[48px]" disabled={!selectedSlot} onClick={() => setStep(2)}>下一步 <ChevronRight className="w-4 h-4 ml-1" /></Button>
             </div>
           </div>
         )}
@@ -456,9 +456,9 @@ export default function BookPage() {
             )}
 
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
+              <Button variant="outline" className="flex-1 min-h-[48px]" onClick={() => setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
               <Button
-                className="flex-1"
+                className="flex-1 min-h-[48px] text-base"
                 disabled={submitting || (!!store?.bookingNotes && !agreedToNotes)}
                 onClick={handleSubmit}
               >

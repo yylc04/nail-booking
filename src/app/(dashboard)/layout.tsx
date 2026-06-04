@@ -32,7 +32,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         storeName={storeName}
         storeId={session.storeId}
       />
-      <main className="flex-1 overflow-auto bg-background">
+      <main className="flex-1 overflow-auto bg-background pt-14 md:pt-0">
         {children}
       </main>
     </div>
