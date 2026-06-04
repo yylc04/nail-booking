@@ -178,7 +178,7 @@ export function Sidebar({ role, username, logo, storeName, storeId }: SidebarPro
                 )}
                 <div>
                   <p className="text-sm font-bold text-sidebar-foreground">{storeName || '美甲工作室'}</p>
-                  <p className="text-xs text-muted-foreground">預約管理系統</p>
+                  <p className="text-xs text-muted-foreground">Blooming♡</p>
                 </div>
               </div>
               <button
@@ -220,7 +220,7 @@ export function Sidebar({ role, username, logo, storeName, storeId }: SidebarPro
               </div>
               <div>
                 <p className="text-sm font-bold text-sidebar-foreground">{storeName || '美甲工作室'}</p>
-                <p className="text-xs text-muted-foreground">預約管理系統</p>
+                <p className="text-xs text-muted-foreground">Blooming♡</p>
               </div>
             </div>
           )}

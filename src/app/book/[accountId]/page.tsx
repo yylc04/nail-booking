@@ -149,7 +149,7 @@ export default function BookPage() {
 
   if (showDeposit && depositInfo) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-fuchsia-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF7FB] via-[#FFECF5] to-[#FFD9EC] flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-4">
           <div className="text-center">
             <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
@@ -201,7 +201,7 @@ export default function BookPage() {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-fuchsia-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF7FB] via-[#FFECF5] to-[#FFD9EC] flex items-center justify-center p-4">
         <div className="text-center max-w-sm w-full">
           <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
             <Check className="w-10 h-10 text-green-500" />
@@ -229,7 +229,7 @@ export default function BookPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-fuchsia-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#FFF7FB] via-[#FFECF5] to-[#FFD9EC]">
       <div className="bg-white/80 backdrop-blur border-b border-border/50 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center gap-3 mb-3">
@@ -243,7 +243,7 @@ export default function BookPage() {
               </div>
             )}
             <div>
-              <h1 className="text-sm font-bold">{store?.name || '美甲預約'}</h1>
+              <h1 className="text-sm font-bold">{store?.name || 'Blooming♡'}</h1>
               <p className="text-xs text-muted-foreground">線上預約</p>
             </div>
           </div>

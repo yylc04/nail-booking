@@ -7,8 +7,8 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: '美甲預約管理系統',
-  description: '專業美甲店預約管理平台',
+  title: 'Blooming♡｜美甲預約管理',
+  description: 'Blooming — 專業美甲店預約管理平台',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

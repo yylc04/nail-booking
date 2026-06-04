@@ -38,15 +38,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 via-rose-50 to-fuchsia-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FFF7FB] via-[#FFECF5] to-[#FFD9EC] p-4">
       <div className="w-full max-w-md">
         {/* Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-primary/10 mb-4">
             <Sparkles className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">美甲預約管理</h1>
-          <p className="text-sm text-muted-foreground mt-1">請登入您的帳號</p>
+          <h1 className="text-2xl font-bold text-foreground">Blooming♡</h1>
+          <p className="text-sm text-muted-foreground mt-1">美甲預約管理系統</p>
         </div>
 
         <Card className="border-border/50 shadow-lg shadow-primary/5">
