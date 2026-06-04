@@ -65,6 +65,8 @@ export default function SettingsPage() {
 
   const [globalSaving, setGlobalSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showApplyMonthDialog, setShowApplyMonthDialog] = useState(false)
+  const [applyingMonth, setApplyingMonth] = useState(false)
 
   // Load store settings
   useEffect(() => {
@@ -160,6 +162,57 @@ export default function SettingsPage() {
     } else {
       toast.error('儲存失敗')
     }
+  }
+
+  // Apply weekly templates to entire month
+  async function applyToMonth(mode: 'fill' | 'overwrite') {
+    if (templates.length === 0) {
+      toast.error('尚未設定任何每週預設時段')
+      setShowApplyMonthDialog(false)
+      return
+    }
+    setApplyingMonth(true)
+    const updated: Record<string, string[]> = {}
+    let appliedCount = 0
+
+    for (const day of days) {
+      const key = format(day, 'yyyy-MM-dd')
+      const dow = day.getDay()
+      const tplSlots = templates.filter(t => t.dayOfWeek === dow).map(t => t.time)
+
+      if (tplSlots.length === 0) continue // no template for this day of week
+
+      const alreadyHasSlots = (slotMap[key] || []).length > 0
+      const markedClosed = closedMap[key]?.isClosed
+
+      if (mode === 'fill' && (alreadyHasSlots || markedClosed)) continue
+
+      const res = await fetch(`/api/settings/daily-slots/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slots: tplSlots, isClosed: false }),
+      })
+
+      if (res.ok) {
+        updated[key] = tplSlots
+        appliedCount++
+      }
+    }
+
+    // Update local state
+    setSlotMap(prev => ({ ...prev, ...updated }))
+    if (mode === 'overwrite') {
+      // Also clear closed marks for days that now have slots
+      setClosedMap(prev => {
+        const next = { ...prev }
+        Object.keys(updated).forEach(k => delete next[k])
+        return next
+      })
+    }
+
+    setApplyingMonth(false)
+    setShowApplyMonthDialog(false)
+    toast.success(`已套用至 ${appliedCount} 個日期`)
   }
 
   // Template management
@@ -298,6 +351,16 @@ export default function SettingsPage() {
             <Button variant="ghost" size="icon" onClick={() => setCalMonth(m => subMonths(m, 1))}><ChevronLeft className="w-4 h-4" /></Button>
             <span className="font-bold">{format(calMonth, 'yyyy年M月', { locale: zhTW })}</span>
             <Button variant="ghost" size="icon" onClick={() => setCalMonth(m => addMonths(m, 1))}><ChevronRight className="w-4 h-4" /></Button>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
+              onClick={() => setShowApplyMonthDialog(true)}
+            >
+              <Check className="w-3 h-3" /> 一鍵套用全月
+            </Button>
           </div>
 
           {/* Weekday headers */}
@@ -516,6 +579,66 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Apply-to-month dialog ── */}
+      <Dialog open={showApplyMonthDialog} onOpenChange={o => !o && !applyingMonth && setShowApplyMonthDialog(false)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>套用預設時段到本月</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-sm text-muted-foreground">請選擇套用方式：</p>
+
+            {/* Option 1 — Recommended */}
+            <button
+              disabled={applyingMonth}
+              onClick={() => applyToMonth('fill')}
+              className="w-full text-left p-4 rounded-2xl border-2 border-primary/40 bg-primary/5 hover:bg-primary/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+            >
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-primary">只套用未設定的日期</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">已手動設定的日期完全保留，只補上尚未設定的日期</p>
+                  <span className="inline-block mt-1.5 text-[10px] font-medium text-primary bg-primary/10 rounded-full px-2 py-0.5">建議選項</span>
+                </div>
+              </div>
+            </button>
+
+            {/* Option 2 — Overwrite */}
+            <button
+              disabled={applyingMonth}
+              onClick={() => applyToMonth('overwrite')}
+              className="w-full text-left p-4 rounded-2xl border border-border hover:border-foreground/30 hover:bg-accent/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-border flex items-center justify-center shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">全部覆蓋</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">所有日期都套用每週預設時段，覆蓋已手動設定的日期</p>
+                </div>
+              </div>
+            </button>
+
+            {applyingMonth && (
+              <p className="text-xs text-center text-muted-foreground animate-pulse">套用中，請稍候...</p>
+            )}
+
+            <Button
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              disabled={applyingMonth}
+              onClick={() => setShowApplyMonthDialog(false)}
+            >
+              取消
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
