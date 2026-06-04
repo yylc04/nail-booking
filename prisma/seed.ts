@@ -59,7 +59,7 @@ async function main() {
   const vivianHash = await bcrypt.hash('889988', 12)
   await prisma.storeUser.upsert({
     where: { username: 'vivian' },
-    update: { storeId: 'vivian-store' },
+    update: { storeId: 'vivian-store', role: UserRole.STORE },
     create: {
       username: 'vivian',
       passwordHash: vivianHash,
