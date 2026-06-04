@@ -121,7 +121,10 @@ export default function ServicesPage() {
       ) : (
         <div className="space-y-4">
           {categories.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">尚未建立任何分類，請先新增分類</div>
+            <div className="text-center py-12 space-y-3">
+              <p className="text-muted-foreground text-sm">尚未建立任何分類</p>
+              <button onClick={() => { setNewCatName(''); setShowCatForm(true) }} className="text-sm text-primary font-medium hover:underline">+ 新增第一個分類</button>
+            </div>
           )}
           {categories.map(cat => (
             <Card key={cat.id} className="border-border/50 shadow-sm">
@@ -139,7 +142,10 @@ export default function ServicesPage() {
               </CardHeader>
               <CardContent className="pt-0">
                 {cat.services.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">此分類尚無服務</p>
+                  <div className="py-2 space-y-1">
+                    <p className="text-sm text-muted-foreground">此分類尚無服務</p>
+                    <button onClick={openCreate} className="text-xs text-primary font-medium hover:underline">+ 新增服務到此分類</button>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {cat.services.map(svc => (
@@ -184,14 +190,14 @@ export default function ServicesPage() {
               <Label>服務名稱 <span className="text-destructive">*</span></Label>
               <Input value={fName} onChange={e => setFName(e.target.value)} placeholder="例：素色光療" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>價格 (NT$) <span className="text-destructive">*</span></Label>
-                <Input type="number" value={fPrice} onChange={e => setFPrice(e.target.value)} placeholder="800" />
+                <Input type="number" value={fPrice} onChange={e => setFPrice(e.target.value)} placeholder="800" className="min-h-[44px]" />
               </div>
               <div className="space-y-2">
                 <Label>施作時間 (分鐘) <span className="text-destructive">*</span></Label>
-                <Input type="number" value={fDuration} onChange={e => setFDuration(e.target.value)} placeholder="60" />
+                <Input type="number" value={fDuration} onChange={e => setFDuration(e.target.value)} placeholder="60" className="min-h-[44px]" />
               </div>
             </div>
             <div className="space-y-2">

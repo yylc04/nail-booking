@@ -468,7 +468,7 @@ export default function SettingsPage() {
             <>
               <div className="space-y-2">
                 <Label>訂金金額 (NT$)</Label>
-                <Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="500" className="w-40" />
+                <Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="500" className="w-full sm:w-40" />
               </div>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -477,7 +477,7 @@ export default function SettingsPage() {
                 </div>
                 {bankAccounts.map((b, idx) => (
                   <div key={idx} className="p-3 rounded-xl bg-accent/30 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <Label className="text-xs">銀行名稱</Label>
                         <Input value={b.bankName} onChange={e => updateBankAccount(idx, 'bankName', e.target.value)} placeholder="台灣銀行" className="text-sm" />

@@ -176,7 +176,10 @@ export default function AppointmentsPage() {
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">載入中...</div>
           ) : appointments.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">尚無預約記錄</div>
+            <div className="p-8 text-center space-y-3">
+              <p className="text-muted-foreground text-sm">尚無預約記錄</p>
+              <button onClick={openCreate} className="text-sm text-primary font-medium hover:underline">+ 新增第一筆預約</button>
+            </div>
           ) : (
             <div className="divide-y divide-border/50">
               {appointments.map(a => (
@@ -202,7 +205,7 @@ export default function AppointmentsPage() {
                             </p>
                           )}
                           <p className="text-xs text-muted-foreground">
-                            {a.startTime} – {a.endTime}
+                            {a.startTime}{a.endTime ? ` – ${a.endTime}` : ''}
                           </p>
                           <p className="text-xs text-muted-foreground truncate">{a.services.map(s => s.serviceName).join('、')}</p>
                           <p className="text-xs font-medium text-primary mt-0.5">NT$ {a.totalPrice.toLocaleString()}</p>
@@ -305,7 +308,7 @@ export default function AppointmentsPage() {
                   {categories.map(cat => (
                     <div key={cat.id}>
                       <p className="text-xs font-semibold text-muted-foreground mb-2">{cat.name}</p>
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         {cat.services.map(svc => {
                           const selected = fServices.some(s => s.serviceId === svc.id)
                           return (

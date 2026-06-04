@@ -94,7 +94,10 @@ export default function CustomersPage() {
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">載入中...</div>
           ) : customers.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">尚無客戶資料</div>
+            <div className="p-8 text-center space-y-3">
+              <p className="text-muted-foreground text-sm">尚無客戶資料</p>
+              <button onClick={openCreate} className="text-sm text-primary font-medium hover:underline">+ 新增第一位客戶</button>
+            </div>
           ) : (
             <div className="divide-y divide-border/50">
               {customers.map(c => (

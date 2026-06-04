@@ -65,6 +65,7 @@ export default function LoginPage() {
                   placeholder="輸入帳號"
                   required
                   autoComplete="username"
+                  className="min-h-[44px]"
                 />
               </div>
               <div className="space-y-2">
@@ -77,9 +78,10 @@ export default function LoginPage() {
                   placeholder="輸入密碼"
                   required
                   autoComplete="current-password"
+                  className="min-h-[44px]"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full min-h-[48px] text-base" disabled={loading}>
                 {loading ? '登入中...' : '登入'}
               </Button>
             </form>

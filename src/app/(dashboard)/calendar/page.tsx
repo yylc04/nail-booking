@@ -50,7 +50,7 @@ export default function CalendarPage() {
     : []
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex items-center gap-3">
         <CalendarDays className="w-6 h-6 text-primary" />
         <h1 className="text-xl font-bold">行事曆</h1>
@@ -92,7 +92,7 @@ export default function CalendarPage() {
                   <button
                     key={day.toISOString()}
                     onClick={() => setSelected(isSelected ? null : day)}
-                    className={`relative p-1 rounded-xl text-left transition-all min-h-[72px] ${
+                    className={`relative p-1 rounded-xl text-left transition-all min-h-[56px] md:min-h-[72px] ${
                       isSelected ? 'bg-primary/10 ring-2 ring-primary' :
                       isToday ? 'bg-primary/5' : 'hover:bg-accent'
                     }`}
@@ -104,9 +104,9 @@ export default function CalendarPage() {
                       {format(day, 'd')}
                     </span>
                     <div className="space-y-0.5">
-                      {dayAppts.slice(0, 3).map(a => (
+                      {dayAppts.slice(0, 2).map(a => (
                         <div key={a.id} className={`text-[10px] leading-tight px-1 py-0.5 rounded text-white truncate ${STATUS_COLOR[a.status]}`}>
-                          {a.startTime} {a.customer.name}
+                          <span className="hidden sm:inline">{a.startTime} </span>{a.customer.name}
                         </div>
                       ))}
                       {dayAppts.length > 3 && (

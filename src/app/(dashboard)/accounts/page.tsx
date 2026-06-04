@@ -243,7 +243,7 @@ export default function AccountsPage() {
               <Label>店家名稱</Label>
               <Input value={eStoreName} onChange={e => setEStoreName(e.target.value)} placeholder="店家名稱" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>聯絡人姓名</Label>
                 <Input value={eContactName} onChange={e => setEContactName(e.target.value)} placeholder="聯絡人" />
@@ -257,7 +257,7 @@ export default function AccountsPage() {
               <Label>Line ID</Label>
               <Input value={eLineId} onChange={e => setELineId(e.target.value)} placeholder="Line ID" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>方案</Label>
                 <Select value={ePlan} onValueChange={v => setEPlan(v === '__none__' ? '' : (v ?? ''))}>
