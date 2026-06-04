@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
-import { ClipboardList, Plus, Search, Pencil, Trash2, ChevronDown } from 'lucide-react'
+import { ClipboardList, Plus, Search, Pencil, Trash2, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +38,7 @@ interface Appointment {
   totalPrice: number
   totalDuration: number
   notes?: string
+  transferCode?: string
   customer: { id: string; name: string; phone: string }
   services: { id: string; serviceName: string; price: number }[]
 }
@@ -179,27 +180,50 @@ export default function AppointmentsPage() {
           ) : (
             <div className="divide-y divide-border/50">
               {appointments.map(a => (
-                <div key={a.id} className="flex items-center justify-between p-4 hover:bg-accent/30 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="text-center w-12">
+                <div key={a.id} className="flex items-start justify-between p-4 hover:bg-accent/30 transition-colors gap-4">
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    <div className="text-center w-12 shrink-0">
                       <p className="text-xs text-muted-foreground">{format(new Date(a.date), 'M月')}</p>
                       <p className="text-xl font-bold text-primary">{format(new Date(a.date), 'd')}</p>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                         <p className="text-sm font-semibold">{a.customer.name}</p>
                         <span className="text-xs text-muted-foreground">{a.customer.phone}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground truncate">
                         {a.startTime} – {a.endTime} · {a.services.map(s => s.serviceName).join('、')}
                       </p>
                       <p className="text-xs font-medium text-primary mt-0.5">NT$ {a.totalPrice.toLocaleString()}</p>
+                      {a.transferCode && (
+                        <p className="text-xs mt-1">
+                          <span className="text-muted-foreground">匯款末五碼：</span>
+                          <span className="font-mono font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">{a.transferCode}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                     <Badge variant="outline" className={`text-xs ${STATUS_COLOR[a.status]}`}>
                       {STATUS_LABEL[a.status]}
                     </Badge>
+                    {a.transferCode && a.status === 'PENDING' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                        onClick={async () => {
+                          const res = await fetch(`/api/appointments/${a.id}`, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'CONFIRMED' }),
+                          })
+                          if (res.ok) { toast.success('已確認收款'); fetchData() }
+                          else toast.error('操作失敗')
+                        }}
+                      >
+                        <CheckCircle className="w-3 h-3" /> 確認收款
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>

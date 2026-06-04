@@ -1,29 +1,30 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Sparkles, ShoppingCart, ChevronLeft, ChevronRight, Check, X, Wand2 } from 'lucide-react'
+import { Sparkles, ShoppingCart, ChevronLeft, ChevronRight, Check, X, Wand2, Banknote } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addDays, isBefore, startOfDay } from 'date-fns'
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isBefore, startOfDay } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import Image from 'next/image'
 
 interface Service { id: string; name: string; price: number; duration: number; description?: string }
 interface Category { id: string; name: string; services: Service[] }
 interface CartItem extends Service { qty: number }
+interface BankAccount { bankName: string; accountNumber: string; accountName: string }
+interface DepositInfo { depositEnabled: boolean; depositAmount: number; bankAccounts: BankAccount[] }
 
 const STEPS = ['選擇服務', '選擇時段', '填寫資料', '完成預約']
-
-function timeToMin(t: string) { const [h, m] = t.split(':').map(Number); return h * 60 + m }
 
 export default function BookPage() {
   const [step, setStep] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
   const [store, setStore] = useState<{ name: string; logo?: string } | null>(null)
+  const [depositInfo, setDepositInfo] = useState<DepositInfo | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
   const [calMonth, setCalMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -35,8 +36,12 @@ export default function BookPage() {
   const [phone, setPhone] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [done, setDone] = useState(false)
+  // Deposit flow
+  const [showDeposit, setShowDeposit] = useState(false)
   const [apptId, setApptId] = useState('')
+  const [transferCode, setTransferCode] = useState('')
+  const [confirmingTransfer, setConfirmingTransfer] = useState(false)
+  const [done, setDone] = useState(false)
 
   const totalDuration = cart.reduce((s, i) => s + i.duration * i.qty, 0)
   const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0)
@@ -46,6 +51,7 @@ export default function BookPage() {
       setCategories(data.categories || [])
       setStore(data.store)
     })
+    fetch('/api/book/deposit-info').then(r => r.json()).then(setDepositInfo)
   }, [])
 
   function addToCart(svc: Service) {
@@ -66,7 +72,6 @@ export default function BookPage() {
   }
 
   const fetchSlots = useCallback(async (date: Date) => {
-    if (!date) return
     setSlotsLoading(true); setSelectedSlot(null); setSlots([])
     const res = await fetch(`/api/book/available-slots?date=${format(date, 'yyyy-MM-dd')}&duration=${totalDuration}`)
     const data = await res.json()
@@ -91,8 +96,34 @@ export default function BookPage() {
     })
     const data = await res.json()
     setSubmitting(false)
-    if (res.ok) { setApptId(data.id); setDone(true); setStep(3) }
-    else toast.error(data.error || '預約失敗，請重試')
+    if (!res.ok) { toast.error(data.error || '預約失敗，請重試'); return }
+
+    setApptId(data.id)
+    if (depositInfo?.depositEnabled && depositInfo.bankAccounts.length > 0) {
+      setShowDeposit(true)
+    } else {
+      setDone(true)
+      setStep(3)
+    }
+  }
+
+  async function handleTransferConfirm() {
+    if (!transferCode || transferCode.length !== 5) return toast.error('請輸入正確的匯款帳號末五碼（5位數字）')
+    if (!/^\d{5}$/.test(transferCode)) return toast.error('末五碼須為 5 位數字')
+    setConfirmingTransfer(true)
+    const res = await fetch(`/api/appointments/${apptId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transferCode }),
+    })
+    setConfirmingTransfer(false)
+    if (res.ok) { setShowDeposit(false); setDone(true); setStep(3) }
+    else toast.error('提交失敗，請重試')
+  }
+
+  function resetAll() {
+    setStep(0); setCart([]); setSelectedDate(null); setSelectedSlot(null)
+    setDone(false); setShowDeposit(false); setApptId(''); setTransferCode('')
+    setName(''); setPhone(''); setNotes('')
   }
 
   const today = startOfDay(new Date())
@@ -101,6 +132,61 @@ export default function BookPage() {
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
   const startPad = getDay(monthStart)
 
+  // ── Deposit payment screen ──
+  if (showDeposit && depositInfo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-fuchsia-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-4">
+          <div className="text-center">
+            <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
+              <Banknote className="w-8 h-8 text-amber-600" />
+            </div>
+            <h2 className="text-xl font-bold">請完成訂金匯款</h2>
+            <p className="text-sm text-muted-foreground mt-1">預約已成立，請匯款後填入帳號末五碼</p>
+          </div>
+
+          <Card className="border-border/50 shadow-sm">
+            <CardContent className="p-4 space-y-3">
+              <div className="text-center p-3 bg-amber-50 rounded-xl">
+                <p className="text-xs text-muted-foreground">訂金金額</p>
+                <p className="text-2xl font-bold text-amber-700">NT$ {depositInfo.depositAmount.toLocaleString()}</p>
+              </div>
+
+              {depositInfo.bankAccounts.map((b, i) => (
+                <div key={i} className="p-3 bg-accent/40 rounded-xl space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium">{b.bankName}</p>
+                  <p className="font-mono text-sm font-bold tracking-wide">{b.accountNumber}</p>
+                  <p className="text-xs text-muted-foreground">戶名：{b.accountName}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 shadow-sm">
+            <CardContent className="p-4 space-y-3">
+              <Label>匯款帳號末五碼</Label>
+              <Input
+                value={transferCode}
+                onChange={e => setTransferCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                placeholder="請輸入 5 位數字"
+                maxLength={5}
+                inputMode="numeric"
+                className="text-center text-xl tracking-widest font-mono"
+              />
+              <Button className="w-full" onClick={handleTransferConfirm} disabled={confirmingTransfer}>
+                {confirmingTransfer ? '提交中...' : '確認已匯款'}
+              </Button>
+              <Button variant="ghost" className="w-full text-sm text-muted-foreground" onClick={() => { setShowDeposit(false); setDone(true); setStep(3) }}>
+                稍後再匯款，先完成預約
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Success screen ──
   if (done) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-fuchsia-50 flex items-center justify-center p-4">
@@ -116,9 +202,7 @@ export default function BookPage() {
             {cart.map(i => `${i.name}${i.qty > 1 ? ` x${i.qty}` : ''}`).join('、')}
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
-            <Button variant="outline" onClick={() => { setStep(0); setCart([]); setSelectedDate(null); setSelectedSlot(null); setDone(false) }}>
-              再次預約
-            </Button>
+            <Button variant="outline" onClick={resetAll}>再次預約</Button>
             <Button onClick={() => window.location.href = '/book/login'}>查看我的預約</Button>
           </div>
         </div>
@@ -146,10 +230,9 @@ export default function BookPage() {
               <p className="text-xs text-muted-foreground">線上預約</p>
             </div>
           </div>
-          {/* Step indicator */}
           <div className="flex items-center gap-0.5">
-            {STEPS.map((s, i) => (
-              <div key={s} className="flex items-center flex-1">
+            {STEPS.map((_, i) => (
+              <div key={i} className="flex items-center flex-1">
                 <div className={`flex-1 h-1.5 rounded-full transition-all ${i <= step ? 'bg-primary' : 'bg-border'}`} />
               </div>
             ))}
@@ -194,7 +277,6 @@ export default function BookPage() {
               </div>
             ))}
 
-            {/* Cart summary */}
             {cart.length > 0 && (
               <Card className="sticky bottom-4 border-primary/30 shadow-lg shadow-primary/10 bg-white/95 backdrop-blur">
                 <CardContent className="p-3">
@@ -238,14 +320,12 @@ export default function BookPage() {
                     const isToday = isSameDay(day, new Date())
                     return (
                       <button
-                        key={day.toISOString()}
-                        disabled={past}
+                        key={day.toISOString()} disabled={past}
                         onClick={() => { setSelectedDate(day); setSelectedSlot(null) }}
                         className={`aspect-square rounded-xl text-sm font-medium transition-all flex items-center justify-center ${
                           past ? 'text-muted-foreground/40 cursor-not-allowed' :
                           isSelected ? 'bg-primary text-white shadow-sm' :
-                          isToday ? 'bg-primary/10 text-primary' :
-                          'hover:bg-accent'
+                          isToday ? 'bg-primary/10 text-primary' : 'hover:bg-accent'
                         }`}
                       >
                         {format(day, 'd')}
@@ -261,7 +341,7 @@ export default function BookPage() {
                 <CardContent className="p-4">
                   <p className="text-sm font-semibold mb-3">
                     {format(selectedDate, 'M月d日 EEEE', { locale: zhTW })} 可用時段
-                    <span className="text-xs text-muted-foreground ml-2">（服務共 {totalDuration} 分鐘）</span>
+                    <span className="text-xs text-muted-foreground ml-2">（共 {totalDuration} 分鐘）</span>
                   </p>
                   {slotsLoading ? (
                     <p className="text-sm text-muted-foreground">載入中...</p>
@@ -273,8 +353,7 @@ export default function BookPage() {
                     <div className="grid grid-cols-4 gap-2">
                       {slots.map(slot => (
                         <button
-                          key={slot}
-                          onClick={() => setSelectedSlot(slot)}
+                          key={slot} onClick={() => setSelectedSlot(slot)}
                           className={`py-2 px-1 rounded-xl text-sm font-medium transition-all border ${
                             selectedSlot === slot ? 'bg-primary text-white border-primary shadow-sm' : 'border-border hover:border-primary/50 hover:bg-accent'
                           }`}
@@ -289,12 +368,8 @@ export default function BookPage() {
             )}
 
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setStep(0)}>
-                <ChevronLeft className="w-4 h-4 mr-1" /> 上一步
-              </Button>
-              <Button className="flex-1" disabled={!selectedSlot} onClick={() => setStep(2)}>
-                下一步 <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setStep(0)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
+              <Button className="flex-1" disabled={!selectedSlot} onClick={() => setStep(2)}>下一步 <ChevronRight className="w-4 h-4 ml-1" /></Button>
             </div>
           </div>
         )}
@@ -307,8 +382,16 @@ export default function BookPage() {
                 <h3 className="font-semibold text-sm flex items-center gap-2"><Wand2 className="w-4 h-4 text-primary" /> 填寫預約資料</h3>
                 <div className="bg-accent/40 rounded-xl p-3 text-sm">
                   <p className="font-medium">{format(selectedDate!, 'yyyy年M月d日', { locale: zhTW })} {selectedSlot}</p>
-                  <p className="text-muted-foreground text-xs mt-1">{cart.map(i => `${i.name}${i.qty > 1 ? ` x${i.qty}` : ''}`).join('、')} · {totalDuration}分鐘 · NT$ {totalPrice.toLocaleString()}</p>
+                  <p className="text-muted-foreground text-xs mt-1">
+                    {cart.map(i => `${i.name}${i.qty > 1 ? ` x${i.qty}` : ''}`).join('、')} · {totalDuration}分鐘 · NT$ {totalPrice.toLocaleString()}
+                  </p>
                 </div>
+                {depositInfo?.depositEnabled && (
+                  <div className="flex items-center gap-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200">
+                    <Banknote className="w-4 h-4 text-amber-600 shrink-0" />
+                    <p className="text-xs text-amber-800">此預約需支付 <strong>NT$ {depositInfo.depositAmount.toLocaleString()}</strong> 訂金（預約後顯示匯款資訊）</p>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>姓名 <span className="text-destructive">*</span></Label>
                   <Input value={name} onChange={e => setName(e.target.value)} placeholder="您的姓名" />
@@ -325,9 +408,7 @@ export default function BookPage() {
             </Card>
 
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setStep(1)}>
-                <ChevronLeft className="w-4 h-4 mr-1" /> 上一步
-              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
               <Button className="flex-1" disabled={submitting} onClick={handleSubmit}>
                 {submitting ? '送出中...' : '確認預約'}
               </Button>

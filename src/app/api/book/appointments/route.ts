@@ -16,7 +16,7 @@ function minutesToTime(minutes: number): string {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { name, phone, date, startTime, services, notes } = body
+  const { name, phone, date, startTime, services, notes, transferCode } = body
 
   if (!name || !phone || !date || !startTime || !services?.length) {
     return NextResponse.json({ error: '請填寫所有必填欄位' }, { status: 400 })
@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       totalPrice,
       totalDuration,
       notes,
+      transferCode: transferCode || null,
       services: {
         create: services.map((s: { serviceId: string; name: string; price: number; duration: number }) => ({
           serviceId: s.serviceId,

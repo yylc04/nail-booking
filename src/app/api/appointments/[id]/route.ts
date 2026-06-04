@@ -23,11 +23,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const appt = await prisma.appointment.update({
     where: { id },
     data: {
-      status: body.status,
-      notes: body.notes,
-      date: body.date ? new Date(body.date) : undefined,
-      startTime: body.startTime,
-      endTime: body.endTime,
+      ...(body.status !== undefined ? { status: body.status } : {}),
+      ...(body.notes !== undefined ? { notes: body.notes } : {}),
+      ...(body.date ? { date: new Date(body.date) } : {}),
+      ...(body.startTime !== undefined ? { startTime: body.startTime } : {}),
+      ...(body.endTime !== undefined ? { endTime: body.endTime } : {}),
     },
     include: { customer: true, services: true },
   })

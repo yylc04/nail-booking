@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Settings, Upload, Plus, Trash2, Wand2 } from 'lucide-react'
+import { Settings, Upload, Plus, Trash2, Wand2, Banknote } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,35 +11,47 @@ import Image from 'next/image'
 
 const DAYS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
 
-interface BusinessHour {
-  dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string; slotMinutes: number
-}
-interface ExceptionDate {
-  date: string; isClosed: boolean; openTime?: string; closeTime?: string; note?: string
-}
+interface BusinessHour { dayOfWeek: number; isOpen: boolean }
+interface BusinessSlot { dayOfWeek: number; time: string }
+interface ExceptionDate { date: string; isClosed: boolean; note?: string }
+interface BankAccount { bankName: string; accountNumber: string; accountName: string }
 
 export default function SettingsPage() {
   const [storeName, setStoreName] = useState('')
   const [logo, setLogo] = useState<string | null>(null)
   const [hours, setHours] = useState<BusinessHour[]>([])
+  const [slots, setSlots] = useState<BusinessSlot[]>([])
   const [exceptions, setExceptions] = useState<ExceptionDate[]>([])
+  const [depositEnabled, setDepositEnabled] = useState(false)
+  const [depositAmount, setDepositAmount] = useState('')
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Slot input state
+  const [selectedDay, setSelectedDay] = useState(1)
+  const [newTime, setNewTime] = useState('')
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => {
       setStoreName(data?.name || '')
       setLogo(data?.logo || null)
+      setDepositEnabled(data?.depositEnabled || false)
+      setDepositAmount(data?.depositAmount ? String(data.depositAmount) : '0')
+      setBankAccounts(data?.bankAccounts || [])
+
       if (data?.businessHours?.length) {
-        setHours(data.businessHours)
+        setHours(data.businessHours.map((h: { dayOfWeek: number; isOpen: boolean }) => ({ dayOfWeek: h.dayOfWeek, isOpen: h.isOpen })))
       } else {
-        setHours(Array.from({ length: 7 }, (_, i) => ({
-          dayOfWeek: i, isOpen: i >= 1 && i <= 6, openTime: '10:00', closeTime: '19:00', slotMinutes: 30,
-        })))
+        setHours(Array.from({ length: 7 }, (_, i) => ({ dayOfWeek: i, isOpen: i >= 1 && i <= 6 })))
       }
-      setExceptions(data?.exceptionDates?.map((e: { date: string; isClosed: boolean; openTime?: string; closeTime?: string; note?: string }) => ({
-        ...e, date: e.date.split('T')[0],
+
+      setSlots(data?.businessSlots?.map((s: { dayOfWeek: number; time: string }) => ({ dayOfWeek: s.dayOfWeek, time: s.time })) || [])
+      setExceptions(data?.exceptionDates?.map((e: { date: string; isClosed: boolean; note?: string }) => ({
+        date: e.date.split('T')[0],
+        isClosed: e.isClosed,
+        note: e.note || '',
       })) || [])
       setLoading(false)
     })
@@ -54,8 +66,16 @@ export default function SettingsPage() {
     reader.readAsDataURL(file)
   }
 
-  function updateHour(idx: number, field: keyof BusinessHour, value: string | boolean | number) {
-    setHours(prev => prev.map((h, i) => i === idx ? { ...h, [field]: value } : h))
+  function addSlot() {
+    if (!newTime) { toast.error('請選擇時間'); return }
+    const already = slots.some(s => s.dayOfWeek === selectedDay && s.time === newTime)
+    if (already) { toast.error('此時段已存在'); return }
+    setSlots(prev => [...prev, { dayOfWeek: selectedDay, time: newTime }].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.time.localeCompare(b.time)))
+    setNewTime('')
+  }
+
+  function removeSlot(day: number, time: string) {
+    setSlots(prev => prev.filter(s => !(s.dayOfWeek === day && s.time === time)))
   }
 
   function addException() {
@@ -70,12 +90,33 @@ export default function SettingsPage() {
     setExceptions(prev => prev.filter((_, i) => i !== idx))
   }
 
+  function addBankAccount() {
+    setBankAccounts(prev => [...prev, { bankName: '', accountNumber: '', accountName: '' }])
+  }
+
+  function updateBankAccount(idx: number, field: keyof BankAccount, value: string) {
+    setBankAccounts(prev => prev.map((b, i) => i === idx ? { ...b, [field]: value } : b))
+  }
+
+  function removeBankAccount(idx: number) {
+    setBankAccounts(prev => prev.filter((_, i) => i !== idx))
+  }
+
   async function handleSave() {
     setSaving(true)
     const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: storeName, logo, businessHours: hours, exceptionDates: exceptions.filter(e => e.date) }),
+      body: JSON.stringify({
+        name: storeName,
+        logo,
+        businessHours: hours,
+        businessSlots: slots,
+        exceptionDates: exceptions.filter(e => e.date),
+        depositEnabled,
+        depositAmount,
+        bankAccounts: bankAccounts.filter(b => b.bankName || b.accountNumber),
+      }),
     })
     setSaving(false)
     if (res.ok) toast.success('設定已儲存')
@@ -83,6 +124,11 @@ export default function SettingsPage() {
   }
 
   if (loading) return <div className="p-6 text-muted-foreground">載入中...</div>
+
+  const slotsByDay = DAYS.map((_, i) => ({
+    day: i,
+    slots: slots.filter(s => s.dayOfWeek === i).sort((a, b) => a.time.localeCompare(b.time)),
+  }))
 
   return (
     <div className="p-6 space-y-6 max-w-2xl">
@@ -94,13 +140,14 @@ export default function SettingsPage() {
         <Button onClick={handleSave} disabled={saving}>{saving ? '儲存中...' : '儲存設定'}</Button>
       </div>
 
-      {/* Store info */}
+      {/* ── 1 & 2. Store info + Logo ── */}
       <Card className="border-border/50 shadow-sm">
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Wand2 className="w-4 h-4 text-primary" /> 店家資訊</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>店家名稱</Label>
-            <Input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="我的美甲店" />
+            <Input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="我的美甲工作室" />
+            <p className="text-xs text-muted-foreground">修改後儲存，側邊欄與預約頁同步更新</p>
           </div>
           <div className="space-y-2">
             <Label>店家 Logo</Label>
@@ -126,7 +173,7 @@ export default function SettingsPage() {
               )}
               <div>
                 <p className="text-xs text-muted-foreground">支援 JPG、PNG，最大 2MB</p>
-                <p className="text-xs text-muted-foreground">Logo 將顯示於後台側邊欄和預約頁面</p>
+                <p className="text-xs text-muted-foreground">顯示於側邊欄與 /book 預約頁頂部</p>
                 <Button variant="outline" size="sm" className="mt-2 gap-1" onClick={() => fileRef.current?.click()}>
                   <Upload className="w-3 h-3" /> 選擇圖片
                 </Button>
@@ -137,33 +184,84 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Business hours */}
+      {/* ── 3. Time slots (manual) ── */}
       <Card className="border-border/50 shadow-sm">
-        <CardHeader><CardTitle className="text-base">每週營業時間</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {hours.map((h, i) => (
-            <div key={h.dayOfWeek} className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 w-20">
-                <input type="checkbox" id={`day-${i}`} checked={h.isOpen} onChange={e => updateHour(i, 'isOpen', e.target.checked)} className="accent-primary" />
-                <Label htmlFor={`day-${i}`} className="text-sm">{DAYS[h.dayOfWeek]}</Label>
-              </div>
-              <Input type="time" value={h.openTime} onChange={e => updateHour(i, 'openTime', e.target.value)} disabled={!h.isOpen} className="w-28 text-sm" />
-              <span className="text-muted-foreground text-sm">–</span>
-              <Input type="time" value={h.closeTime} onChange={e => updateHour(i, 'closeTime', e.target.value)} disabled={!h.isOpen} className="w-28 text-sm" />
-              <div className="flex items-center gap-1">
-                <Label className="text-xs text-muted-foreground">間隔</Label>
-                <select
-                  value={h.slotMinutes}
-                  onChange={e => updateHour(i, 'slotMinutes', Number(e.target.value))}
-                  disabled={!h.isOpen}
-                  className="text-xs border border-border rounded-md px-2 py-1 bg-background"
-                >
-                  {[15, 30, 60].map(m => <option key={m} value={m}>{m}分鐘</option>)}
-                </select>
-              </div>
-              {!h.isOpen && <span className="text-xs text-muted-foreground">公休</span>}
+        <CardHeader><CardTitle className="text-base">預約時段設定</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {/* Weekly open/closed */}
+          <div>
+            <p className="text-sm font-medium mb-2">每週營業日</p>
+            <div className="flex flex-wrap gap-2">
+              {DAYS.map((d, i) => {
+                const h = hours.find(h => h.dayOfWeek === i)
+                const isOpen = h?.isOpen ?? (i >= 1 && i <= 6)
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setHours(prev => {
+                      const exists = prev.findIndex(h => h.dayOfWeek === i)
+                      if (exists >= 0) return prev.map((h, n) => n === exists ? { ...h, isOpen: !h.isOpen } : h)
+                      return [...prev, { dayOfWeek: i, isOpen: true }]
+                    })}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border ${isOpen ? 'bg-primary text-white border-primary' : 'border-border text-muted-foreground'}`}
+                  >
+                    {d}
+                  </button>
+                )
+              })}
             </div>
-          ))}
+          </div>
+
+          {/* Add time slot */}
+          <div>
+            <p className="text-sm font-medium mb-2">新增可預約時段</p>
+            <div className="flex gap-2 flex-wrap">
+              <select
+                value={selectedDay}
+                onChange={e => setSelectedDay(Number(e.target.value))}
+                className="text-sm border border-border rounded-xl px-3 py-2 bg-background"
+              >
+                {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+              </select>
+              <Input
+                type="time"
+                value={newTime}
+                onChange={e => setNewTime(e.target.value)}
+                className="w-32"
+              />
+              <Button onClick={addSlot} variant="outline" className="gap-1">
+                <Plus className="w-3.5 h-3.5" /> 新增時段
+              </Button>
+            </div>
+          </div>
+
+          {/* Slot list per day */}
+          <div className="space-y-3">
+            {slotsByDay.filter(d => d.slots.length > 0 || hours.find(h => h.dayOfWeek === d.day)?.isOpen).map(({ day, slots: daySlots }) => {
+              const isOpen = hours.find(h => h.dayOfWeek === day)?.isOpen ?? (day >= 1 && day <= 6)
+              if (!isOpen && daySlots.length === 0) return null
+              return (
+                <div key={day} className="p-3 rounded-xl bg-accent/30">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">{DAYS[day]}{!isOpen && ' (公休)'}</p>
+                  {daySlots.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">尚未設定時段</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {daySlots.map(s => (
+                        <span key={s.time} className="inline-flex items-center gap-1 text-xs bg-white border border-border rounded-full px-2.5 py-1">
+                          {s.time}
+                          <button onClick={() => removeSlot(day, s.time)} className="text-muted-foreground hover:text-destructive transition-colors">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {slots.length === 0 && <p className="text-sm text-muted-foreground text-center py-2">尚未設定任何時段，客人將無法選擇時間</p>}
+          </div>
         </CardContent>
       </Card>
 
@@ -185,24 +283,99 @@ export default function SettingsPage() {
               <select
                 value={ex.isClosed ? 'closed' : 'open'}
                 onChange={e => updateException(idx, 'isClosed', e.target.value === 'closed')}
-                className="text-xs border border-border rounded-md px-2 py-1.5 bg-background"
+                className="text-xs border border-border rounded-xl px-3 py-2 bg-background"
               >
                 <option value="closed">公休</option>
-                <option value="open">特殊開放</option>
+                <option value="open">正常開放</option>
               </select>
-              {!ex.isClosed && (
-                <>
-                  <Input type="time" value={ex.openTime || ''} onChange={e => updateException(idx, 'openTime', e.target.value)} className="w-24 text-sm" />
-                  <span className="text-muted-foreground">–</span>
-                  <Input type="time" value={ex.closeTime || ''} onChange={e => updateException(idx, 'closeTime', e.target.value)} className="w-24 text-sm" />
-                </>
-              )}
               <Input value={ex.note || ''} onChange={e => updateException(idx, 'note', e.target.value)} placeholder="備註" className="flex-1 min-w-24 text-sm" />
               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeException(idx)}>
                 <Trash2 className="w-3.5 h-3.5" />
               </Button>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      {/* ── 5. Deposit settings ── */}
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Banknote className="w-4 h-4 text-primary" /> 訂金設定</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="deposit-toggle"
+              checked={depositEnabled}
+              onChange={e => setDepositEnabled(e.target.checked)}
+              className="accent-primary w-4 h-4"
+            />
+            <Label htmlFor="deposit-toggle">啟用訂金功能</Label>
+          </div>
+
+          {depositEnabled && (
+            <>
+              <div className="space-y-2">
+                <Label>訂金金額 (NT$)</Label>
+                <Input
+                  type="number"
+                  value={depositAmount}
+                  onChange={e => setDepositAmount(e.target.value)}
+                  placeholder="500"
+                  className="w-40"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>匯款帳戶資訊</Label>
+                  <Button variant="outline" size="sm" onClick={addBankAccount} className="gap-1">
+                    <Plus className="w-3 h-3" /> 新增帳戶
+                  </Button>
+                </div>
+                {bankAccounts.length === 0 && (
+                  <p className="text-sm text-muted-foreground">尚未設定匯款帳戶</p>
+                )}
+                {bankAccounts.map((b, idx) => (
+                  <div key={idx} className="p-3 rounded-xl bg-accent/30 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">銀行名稱</Label>
+                        <Input
+                          value={b.bankName}
+                          onChange={e => updateBankAccount(idx, 'bankName', e.target.value)}
+                          placeholder="台灣銀行"
+                          className="text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">戶名</Label>
+                        <Input
+                          value={b.accountName}
+                          onChange={e => updateBankAccount(idx, 'accountName', e.target.value)}
+                          placeholder="王小明"
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-xs">帳號</Label>
+                        <Input
+                          value={b.accountNumber}
+                          onChange={e => updateBankAccount(idx, 'accountNumber', e.target.value)}
+                          placeholder="012-345678901234"
+                          className="text-sm"
+                        />
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive shrink-0" onClick={() => removeBankAccount(idx)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

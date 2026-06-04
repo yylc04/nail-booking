@@ -29,42 +29,63 @@ model StoreUser {
 }
 
 model Store {
-  id        String   @id @default(cuid())
-  name      String   @default("我的美甲店")
-  logo      String?  @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String   @default("我的美甲店")
+  logo           String?  @db.Text
+  depositEnabled Boolean  @default(false)
+  depositAmount  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  businessHours BusinessHour[]
+  businessHours  BusinessHour[]
+  businessSlots  BusinessSlot[]
   exceptionDates ExceptionDate[]
+  bankAccounts   BankAccount[]
 }
 
 model BusinessHour {
   id        String  @id @default(cuid())
   storeId   String
-  dayOfWeek Int     // 0=Sunday, 1=Monday, ..., 6=Saturday
+  dayOfWeek Int
   isOpen    Boolean @default(true)
-  openTime  String  // "09:00"
-  closeTime String  // "18:00"
-  slotMinutes Int   @default(30)
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, dayOfWeek])
 }
 
+model BusinessSlot {
+  id        String @id @default(cuid())
+  storeId   String
+  dayOfWeek Int
+  time      String // "10:00"
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, dayOfWeek, time])
+}
+
 model ExceptionDate {
-  id          String   @id @default(cuid())
-  storeId     String
-  date        DateTime @db.Date
-  isClosed    Boolean  @default(true)
-  openTime    String?
-  closeTime   String?
-  note        String?
+  id       String   @id @default(cuid())
+  storeId  String
+  date     DateTime @db.Date
+  isClosed Boolean  @default(true)
+  note     String?
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, date])
+}
+
+model BankAccount {
+  id            String @id @default(cuid())
+  storeId       String
+  bankName      String
+  accountNumber String
+  accountName   String
+  order         Int    @default(0)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }
 
 model ServiceCategory {
@@ -81,26 +102,26 @@ model Service {
   id          String  @id @default(cuid())
   name        String
   price       Int
-  duration    Int     // in minutes
+  duration    Int
   description String?
   isActive    Boolean @default(true)
   storeId     String
   categoryId  String?
   order       Int     @default(0)
 
-  category             ServiceCategory?      @relation(fields: [categoryId], references: [id])
-  appointmentServices  AppointmentService[]
+  category            ServiceCategory?     @relation(fields: [categoryId], references: [id])
+  appointmentServices AppointmentService[]
 }
 
 model Customer {
-  id           String   @id @default(cuid())
-  name         String
-  phone        String
-  email        String?
-  notes        String?
-  storeId      String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  notes     String?
+  storeId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   appointments Appointment[]
 
@@ -108,20 +129,21 @@ model Customer {
 }
 
 model Appointment {
-  id          String            @id @default(cuid())
-  customerId  String
-  storeId     String
-  date        DateTime          @db.Date
-  startTime   String            // "10:00"
-  endTime     String            // "11:30"
-  status      AppointmentStatus @default(PENDING)
-  totalPrice  Int
+  id            String            @id @default(cuid())
+  customerId    String
+  storeId       String
+  date          DateTime          @db.Date
+  startTime     String
+  endTime       String
+  status        AppointmentStatus @default(PENDING)
+  totalPrice    Int
   totalDuration Int
-  notes       String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  notes         String?
+  transferCode  String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
-  customer Customer            @relation(fields: [customerId], references: [id])
+  customer Customer             @relation(fields: [customerId], references: [id])
   services AppointmentService[]
 }
 
