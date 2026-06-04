@@ -52,15 +52,16 @@
   /* Blooming♡ brand palette
      #FFF7FB → background   #FFECF5 → card/sidebar
      #FFD9EC → accent/hover #FFC1E0 → border
-     #E11D48 → primary CTA                          */
+     #F9A8D4 → primary (active/button)  #DB2777 → ring/focus/text
+     #9D174D → primary-foreground (text on pink button)        */
   --background: oklch(0.982 0.010 358);
   --foreground: oklch(0.20 0.04 340);
   --card: oklch(0.958 0.022 355);
   --card-foreground: oklch(0.20 0.04 340);
   --popover: oklch(0.958 0.022 355);
   --popover-foreground: oklch(0.20 0.04 340);
-  --primary: oklch(0.505 0.228 13);
-  --primary-foreground: oklch(1 0 0);
+  --primary: oklch(0.796 0.101 349);
+  --primary-foreground: oklch(0.349 0.150 354);
   --secondary: oklch(0.940 0.032 353);
   --secondary-foreground: oklch(0.36 0.10 340);
   --muted: oklch(0.970 0.014 357);
@@ -70,8 +71,8 @@
   --destructive: oklch(0.55 0.22 25);
   --border: oklch(0.882 0.063 350);
   --input: oklch(0.905 0.050 351);
-  --ring: oklch(0.505 0.228 13);
-  --chart-1: oklch(0.505 0.228 13);
+  --ring: oklch(0.541 0.221 354);
+  --chart-1: oklch(0.541 0.221 354);
   --chart-2: oklch(0.65 0.15 340);
   --chart-3: oklch(0.78 0.10 330);
   --chart-4: oklch(0.60 0.18 355);
@@ -79,12 +80,12 @@
   --radius: 0.75rem;
   --sidebar: oklch(0.958 0.022 355);
   --sidebar-foreground: oklch(0.22 0.04 340);
-  --sidebar-primary: oklch(0.505 0.228 13);
-  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(0.796 0.101 349);
+  --sidebar-primary-foreground: oklch(0.349 0.150 354);
   --sidebar-accent: oklch(0.924 0.040 352);
   --sidebar-accent-foreground: oklch(0.30 0.08 340);
   --sidebar-border: oklch(0.882 0.063 350);
-  --sidebar-ring: oklch(0.505 0.228 13);
+  --sidebar-ring: oklch(0.541 0.221 354);
 }
 
 .dark {

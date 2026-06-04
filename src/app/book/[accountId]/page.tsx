@@ -283,7 +283,7 @@ export default function BookPage() {
                               <span className="text-sm font-bold w-5 text-center">{inCart.qty}</span>
                             </>
                           )}
-                          <button onClick={() => addToCart(svc)} className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors">
+                          <button onClick={() => addToCart(svc)} className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/80 transition-colors">
                             <span className="text-xl leading-none">+</span>
                           </button>
                         </div>
@@ -341,7 +341,7 @@ export default function BookPage() {
                         onClick={() => { setSelectedDate(day); setSelectedSlot(null) }}
                         className={`aspect-square rounded-xl text-sm font-medium transition-all flex items-center justify-center ${
                           past ? 'text-muted-foreground/40 cursor-not-allowed' :
-                          isSelected ? 'bg-primary text-white shadow-sm' :
+                          isSelected ? 'bg-primary text-primary-foreground shadow-sm' :
                           isToday ? 'bg-primary/10 text-primary' : 'hover:bg-accent'
                         }`}
                       >
@@ -372,7 +372,7 @@ export default function BookPage() {
                         <button
                           key={slot} onClick={() => setSelectedSlot(slot)}
                           className={`min-h-[44px] px-1 rounded-xl text-sm font-medium transition-all border ${
-                            selectedSlot === slot ? 'bg-primary text-white border-primary shadow-sm' : 'border-border hover:border-primary/50 hover:bg-accent'
+                            selectedSlot === slot ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'border-border hover:border-primary/50 hover:bg-accent'
                           }`}
                         >
                           {slot}
