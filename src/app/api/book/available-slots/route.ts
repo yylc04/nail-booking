@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-const STORE_ID = 'default-store'
+async function getStoreIdByAccount(accountId?: string | null): Promise<string> {
+  if (!accountId) return 'default-store'
+  const user = await prisma.storeUser.findUnique({
+    where: { username: accountId },
+    select: { storeId: true },
+  })
+  return user?.storeId ?? 'default-store'
+}
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number)
@@ -12,32 +19,30 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const dateStr = searchParams.get('date')
   const duration = Number(searchParams.get('duration') || '60')
+  const accountId = searchParams.get('accountId')
 
   if (!dateStr) return NextResponse.json({ error: 'date required' }, { status: 400 })
 
+  const storeId = await getStoreIdByAccount(accountId)
   const date = new Date(dateStr)
 
-  // Check exception date (closed days)
   const exception = await prisma.exceptionDate.findUnique({
-    where: { storeId_date: { storeId: STORE_ID, date } },
+    where: { storeId_date: { storeId, date } },
   })
   if (exception?.isClosed) return NextResponse.json({ slots: [], closed: true })
 
-  // Get daily slots for this specific date
   const daySlots = await prisma.dailySlot.findMany({
-    where: { storeId: STORE_ID, date },
+    where: { storeId, date },
     orderBy: { time: 'asc' },
   })
 
   if (daySlots.length === 0) return NextResponse.json({ slots: [], closed: false })
 
-  // Get existing appointments for this date
   const appointments = await prisma.appointment.findMany({
-    where: { storeId: STORE_ID, date, status: { notIn: ['CANCELLED'] } },
+    where: { storeId, date, status: { notIn: ['CANCELLED'] } },
     select: { startTime: true, endTime: true },
   })
 
-  // Filter out conflicting slots
   const available = daySlots
     .map(s => s.time)
     .filter(slotTime => {

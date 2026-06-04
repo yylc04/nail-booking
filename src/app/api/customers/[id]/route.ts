@@ -9,7 +9,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const body = await req.json()
   const customer = await prisma.customer.update({
     where: { id },
-    data: { name: body.name, phone: body.phone, email: body.email, notes: body.notes },
+    data: {
+      name: body.name,
+      phone: body.phone,
+      email: body.email,
+      notes: body.notes,
+      lineName: body.lineName,
+      lineOrIg: body.lineOrIg,
+    },
   })
   return NextResponse.json(customer)
 }

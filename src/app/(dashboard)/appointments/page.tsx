@@ -39,7 +39,7 @@ interface Appointment {
   totalDuration: number
   notes?: string
   transferCode?: string
-  customer: { id: string; name: string; phone: string }
+  customer: { id: string; name: string; phone: string; lineName?: string; lineOrIg?: string }
   services: { id: string; serviceName: string; price: number }[]
 }
 
@@ -190,6 +190,8 @@ export default function AppointmentsPage() {
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                         <p className="text-sm font-semibold">{a.customer.name}</p>
                         <span className="text-xs text-muted-foreground">{a.customer.phone}</span>
+                        {a.customer.lineName && <span className="text-xs text-muted-foreground">Line：{a.customer.lineName}</span>}
+                        {a.customer.lineOrIg && <span className="text-xs text-muted-foreground">@{a.customer.lineOrIg}</span>}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
                         {a.startTime} – {a.endTime} · {a.services.map(s => s.serviceName).join('、')}

@@ -2,14 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { setCustomerSession } from '@/lib/auth'
 
-const STORE_ID = 'default-store'
+async function getStoreIdByAccount(accountId?: string | null): Promise<string> {
+  if (!accountId) return 'default-store'
+  const user = await prisma.storeUser.findUnique({
+    where: { username: accountId },
+    select: { storeId: true },
+  })
+  return user?.storeId ?? 'default-store'
+}
 
 export async function POST(req: NextRequest) {
-  const { phone } = await req.json()
+  const { phone, accountId } = await req.json()
   if (!phone) return NextResponse.json({ error: '請輸入電話號碼' }, { status: 400 })
 
+  const storeId = await getStoreIdByAccount(accountId)
+
   const customer = await prisma.customer.findUnique({
-    where: { storeId_phone: { storeId: STORE_ID, phone } },
+    where: { storeId_phone: { storeId, phone } },
   })
 
   if (!customer) {

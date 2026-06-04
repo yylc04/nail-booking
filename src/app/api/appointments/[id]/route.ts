@@ -15,10 +15,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getStoreSession()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   const body = await req.json()
+
+  const storeSession = await getStoreSession()
+
+  // Allow unauthenticated transfer code update (customer deposit confirmation flow)
+  if (!storeSession) {
+    if (typeof body.transferCode === 'string' && Object.keys(body).length === 1) {
+      await prisma.appointment.update({
+        where: { id },
+        data: { transferCode: body.transferCode },
+      })
+      return NextResponse.json({ ok: true })
+    }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const appt = await prisma.appointment.update({
     where: { id },
@@ -28,6 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       ...(body.date ? { date: new Date(body.date) } : {}),
       ...(body.startTime !== undefined ? { startTime: body.startTime } : {}),
       ...(body.endTime !== undefined ? { endTime: body.endTime } : {}),
+      ...(body.transferCode !== undefined ? { transferCode: body.transferCode } : {}),
     },
     include: { customer: true, services: true },
   })

@@ -19,7 +19,7 @@ async function main() {
     },
   })
 
-  // Create store account
+  // Create store account (2yuu)
   const storeHash = await bcrypt.hash('2yuu2026', 12)
   await prisma.storeUser.upsert({
     where: { username: '2yuu' },
@@ -28,6 +28,7 @@ async function main() {
       username: '2yuu',
       passwordHash: storeHash,
       role: UserRole.STORE,
+      storeId: 'default-store',
     },
   })
 
@@ -41,15 +42,41 @@ async function main() {
     },
   })
 
-  // Default business hours (Mon-Sat, 10:00-19:00)
+  // Link 2yuu → default-store (in case user already existed)
+  await prisma.storeUser.update({
+    where: { username: '2yuu' },
+    data: { storeId: 'default-store' },
+  })
+
+  // Create vivian store
+  await prisma.store.upsert({
+    where: { id: 'vivian-store' },
+    update: {},
+    create: { id: 'vivian-store', name: 'Vivian 美甲工作室' },
+  })
+
+  // Create vivian account
+  const vivianHash = await bcrypt.hash('889988', 12)
+  await prisma.storeUser.upsert({
+    where: { username: 'vivian' },
+    update: {},
+    create: {
+      username: 'vivian',
+      passwordHash: vivianHash,
+      role: UserRole.STORE,
+      storeId: 'vivian-store',
+    },
+  })
+
+  // Default business hours (Mon-Sat open, Sun closed)
   const defaultHours = [
-    { dayOfWeek: 0, isOpen: false, openTime: '10:00', closeTime: '19:00' }, // Sun
-    { dayOfWeek: 1, isOpen: true,  openTime: '10:00', closeTime: '19:00' }, // Mon
-    { dayOfWeek: 2, isOpen: true,  openTime: '10:00', closeTime: '19:00' }, // Tue
-    { dayOfWeek: 3, isOpen: true,  openTime: '10:00', closeTime: '19:00' }, // Wed
-    { dayOfWeek: 4, isOpen: true,  openTime: '10:00', closeTime: '19:00' }, // Thu
-    { dayOfWeek: 5, isOpen: true,  openTime: '10:00', closeTime: '19:00' }, // Fri
-    { dayOfWeek: 6, isOpen: true,  openTime: '10:00', closeTime: '18:00' }, // Sat
+    { dayOfWeek: 0, isOpen: false },
+    { dayOfWeek: 1, isOpen: true },
+    { dayOfWeek: 2, isOpen: true },
+    { dayOfWeek: 3, isOpen: true },
+    { dayOfWeek: 4, isOpen: true },
+    { dayOfWeek: 5, isOpen: true },
+    { dayOfWeek: 6, isOpen: true },
   ]
 
   for (const hours of defaultHours) {

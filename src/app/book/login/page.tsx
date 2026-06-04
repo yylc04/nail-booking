@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Sparkles, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -9,8 +9,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 
-export default function CustomerLoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const ref = searchParams.get('ref') || ''
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -20,7 +22,7 @@ export default function CustomerLoginPage() {
     setLoading(true)
     const res = await fetch('/api/book/customer-login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ phone, accountId: ref || undefined }),
     })
     const data = await res.json()
     setLoading(false)
@@ -31,6 +33,8 @@ export default function CustomerLoginPage() {
       toast.error(data.error || '查詢失敗')
     }
   }
+
+  const backHref = ref ? `/book/${ref}` : '/book'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-fuchsia-50 flex items-center justify-center p-4">
@@ -67,12 +71,20 @@ export default function CustomerLoginPage() {
             <div className="mt-4 text-center">
               <p className="text-xs text-muted-foreground">
                 還沒有預約？{' '}
-                <a href="/book" className="text-primary hover:underline font-medium">立即預約</a>
+                <a href={backHref} className="text-primary hover:underline font-medium">立即預約</a>
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function CustomerLoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

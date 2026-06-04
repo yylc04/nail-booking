@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-const STORE_ID = 'default-store'
+async function getStoreIdByAccount(accountId?: string | null): Promise<string> {
+  if (!accountId) return 'default-store'
+  const user = await prisma.storeUser.findUnique({
+    where: { username: accountId },
+    select: { storeId: true },
+  })
+  return user?.storeId ?? 'default-store'
+}
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number)
@@ -16,30 +23,37 @@ function minutesToTime(minutes: number): string {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { name, phone, date, startTime, services, notes, transferCode } = body
+  const { name, phone, lineName, lineOrIg, date, startTime, services, notes, transferCode, accountId } = body
 
-  if (!name || !phone || !date || !startTime || !services?.length) {
+  if (!name || !phone || !lineName || !lineOrIg || !date || !startTime || !services?.length) {
     return NextResponse.json({ error: '請填寫所有必填欄位' }, { status: 400 })
   }
+
+  const storeId = await getStoreIdByAccount(accountId)
 
   const totalDuration = services.reduce((s: number, sv: { duration: number }) => s + sv.duration, 0)
   const totalPrice = services.reduce((s: number, sv: { price: number }) => s + sv.price, 0)
   const endTime = minutesToTime(timeToMinutes(startTime) + totalDuration)
 
-  // Upsert customer
   let customer = await prisma.customer.findUnique({
-    where: { storeId_phone: { storeId: STORE_ID, phone } },
+    where: { storeId_phone: { storeId, phone } },
   })
   if (!customer) {
     customer = await prisma.customer.create({
-      data: { name, phone, storeId: STORE_ID },
+      data: { name, phone, lineName, lineOrIg, storeId },
+    })
+  } else {
+    // Update lineName/lineOrIg if provided
+    customer = await prisma.customer.update({
+      where: { id: customer.id },
+      data: { lineName, lineOrIg },
     })
   }
 
   const appointment = await prisma.appointment.create({
     data: {
       customerId: customer.id,
-      storeId: STORE_ID,
+      storeId,
       date: new Date(date),
       startTime,
       endTime,

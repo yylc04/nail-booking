@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 
 interface Customer {
   id: string; name: string; phone: string; email?: string; notes?: string
+  lineName?: string; lineOrIg?: string
   appointmentCount: number; totalSpent: number; createdAt: string
 }
 
@@ -27,6 +28,8 @@ export default function CustomersPage() {
   const [fName, setFName] = useState('')
   const [fPhone, setFPhone] = useState('')
   const [fEmail, setFEmail] = useState('')
+  const [fLineName, setFLineName] = useState('')
+  const [fLineOrIg, setFLineOrIg] = useState('')
   const [fNotes, setFNotes] = useState('')
 
   const fetchData = useCallback(async () => {
@@ -39,11 +42,13 @@ export default function CustomersPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   function openCreate() {
-    setEditing(null); setFName(''); setFPhone(''); setFEmail(''); setFNotes(''); setShowForm(true)
+    setEditing(null); setFName(''); setFPhone(''); setFEmail(''); setFLineName(''); setFLineOrIg(''); setFNotes(''); setShowForm(true)
   }
 
   function openEdit(c: Customer) {
-    setEditing(c); setFName(c.name); setFPhone(c.phone); setFEmail(c.email || ''); setFNotes(c.notes || ''); setShowForm(true)
+    setEditing(c); setFName(c.name); setFPhone(c.phone); setFEmail(c.email || '')
+    setFLineName(c.lineName || ''); setFLineOrIg(c.lineOrIg || '')
+    setFNotes(c.notes || ''); setShowForm(true)
   }
 
   async function handleSave() {
@@ -52,7 +57,7 @@ export default function CustomersPage() {
     const method = editing ? 'PUT' : 'POST'
     const res = await fetch(url, {
       method, headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: fName, phone: fPhone, email: fEmail, notes: fNotes }),
+      body: JSON.stringify({ name: fName, phone: fPhone, email: fEmail, lineName: fLineName, lineOrIg: fLineOrIg, notes: fNotes }),
     })
     const data = await res.json()
     if (res.ok) { toast.success(editing ? '客戶已更新' : '客戶已新增'); setShowForm(false); fetchData() }
@@ -95,12 +100,18 @@ export default function CustomersPage() {
               {customers.map(c => (
                 <div key={c.id} className="flex items-center justify-between p-4 hover:bg-accent/30 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
                       {c.name.charAt(0)}
                     </div>
                     <div>
                       <p className="text-sm font-semibold">{c.name}</p>
                       <p className="text-xs text-muted-foreground">{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
+                      {(c.lineName || c.lineOrIg) && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {c.lineName && <span className="mr-2">Line：{c.lineName}</span>}
+                          {c.lineOrIg && <span>@{c.lineOrIg}</span>}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-6 text-right">
@@ -143,6 +154,14 @@ export default function CustomersPage() {
             <div className="space-y-2">
               <Label>Email</Label>
               <Input value={fEmail} onChange={e => setFEmail(e.target.value)} placeholder="選填" type="email" />
+            </div>
+            <div className="space-y-2">
+              <Label>Line 名稱</Label>
+              <Input value={fLineName} onChange={e => setFLineName(e.target.value)} placeholder="Line 顯示名稱" />
+            </div>
+            <div className="space-y-2">
+              <Label>Line ID 或 IG 帳號</Label>
+              <Input value={fLineOrIg} onChange={e => setFLineOrIg(e.target.value)} placeholder="Line ID 或 @ig_handle" />
             </div>
             <div className="space-y-2">
               <Label>備註</Label>

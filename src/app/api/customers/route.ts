@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getStoreSession } from '@/lib/auth'
 
-const STORE_ID = 'default-store'
-
 export async function GET(req: NextRequest) {
   const session = await getStoreSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const storeId = session.storeId
+  if (!storeId) return NextResponse.json([])
 
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
 
   const customers = await prisma.customer.findMany({
     where: {
-      storeId: STORE_ID,
+      storeId,
       ...(search ? { OR: [
         { name: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } },
@@ -21,9 +22,7 @@ export async function GET(req: NextRequest) {
     },
     include: {
       _count: { select: { appointments: true } },
-      appointments: {
-        select: { totalPrice: true, status: true },
-      },
+      appointments: { select: { totalPrice: true, status: true } },
     },
     orderBy: { createdAt: 'desc' },
   })
@@ -45,16 +44,19 @@ export async function POST(req: NextRequest) {
   const session = await getStoreSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const storeId = session.storeId
+  if (!storeId) return NextResponse.json({ error: 'No store assigned' }, { status: 400 })
+
   const body = await req.json()
-  const { name, phone, email, notes } = body
+  const { name, phone, email, notes, lineName, lineOrIg } = body
 
   const existing = await prisma.customer.findUnique({
-    where: { storeId_phone: { storeId: STORE_ID, phone } },
+    where: { storeId_phone: { storeId, phone } },
   })
   if (existing) return NextResponse.json({ error: '此電話號碼已存在' }, { status: 409 })
 
   const customer = await prisma.customer.create({
-    data: { name, phone, email, notes, storeId: STORE_ID },
+    data: { name, phone, email, notes, lineName, lineOrIg, storeId },
   })
   return NextResponse.json(customer)
 }

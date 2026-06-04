@@ -20,7 +20,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '帳號或密碼錯誤' }, { status: 401 })
     }
 
-    await setStoreSession({ userId: user.id, username: user.username, role: user.role as 'SUPER_ADMIN' | 'STORE' })
+    await setStoreSession({
+      userId: user.id,
+      username: user.username,
+      role: user.role as 'SUPER_ADMIN' | 'STORE',
+      storeId: user.storeId ?? undefined,
+    })
     return NextResponse.json({ ok: true, role: user.role, username: user.username })
   } catch {
     return NextResponse.json({ error: '伺服器錯誤' }, { status: 500 })

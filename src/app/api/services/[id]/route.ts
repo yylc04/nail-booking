@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getStoreSession } from '@/lib/auth'
 
-const STORE_ID = 'default-store'
-
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getStoreSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const storeId = session.storeId
+  if (!storeId) return NextResponse.json({ error: 'No store assigned' }, { status: 400 })
+
   const { id } = await params
   const body = await req.json()
   const { name, price, duration, description, categoryName, isActive } = body
@@ -14,11 +16,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   let categoryId: string | undefined
   if (categoryName) {
     let cat = await prisma.serviceCategory.findUnique({
-      where: { storeId_name: { storeId: STORE_ID, name: categoryName } },
+      where: { storeId_name: { storeId, name: categoryName } },
     })
     if (!cat) {
       cat = await prisma.serviceCategory.create({
-        data: { storeId: STORE_ID, name: categoryName },
+        data: { storeId, name: categoryName },
       })
     }
     categoryId = cat.id

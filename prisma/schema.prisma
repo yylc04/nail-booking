@@ -24,8 +24,17 @@ model StoreUser {
   username     String    @unique
   passwordHash String
   role         UserRole  @default(STORE)
+  storeId      String?
+  contactName  String?
+  phone        String?
+  lineId       String?
+  plan         String?
+  expiryDate   DateTime?
+  notes        String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  store Store? @relation(fields: [storeId], references: [id], onDelete: SetNull)
 }
 
 model Store {
@@ -39,6 +48,7 @@ model Store {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  storeUsers     StoreUser[]
   businessHours  BusinessHour[]
   businessSlots  BusinessSlot[]
   dailySlots     DailySlot[]
@@ -135,6 +145,8 @@ model Customer {
   phone     String
   email     String?
   notes     String?
+  lineName  String?
+  lineOrIg  String?
   storeId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Sparkles, LayoutDashboard, CalendarDays, ClipboardList, Users, Gem, Settings, UserCog, LogOut } from 'lucide-react'
+import { Sparkles, LayoutDashboard, CalendarDays, ClipboardList, Users, Gem, Settings, UserCog, LogOut, Link2, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import Image from 'next/image'
@@ -12,6 +12,7 @@ interface SidebarProps {
   username: string
   logo?: string | null
   storeName?: string
+  storeId?: string
 }
 
 const navItems = [
@@ -23,14 +24,27 @@ const navItems = [
   { href: '/settings', label: '營業設定', icon: Settings },
 ]
 
-export function Sidebar({ role, username, logo, storeName }: SidebarProps) {
+export function Sidebar({ role, username, logo, storeName, storeId }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+
+  const bookingUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/book/${username}`
+    : `/book/${username}`
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
     toast.success('已登出')
     router.push('/login')
+  }
+
+  function handleCopyLink() {
+    const url = `${window.location.origin}/book/${username}`
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('預約連結已複製')
+    }).catch(() => {
+      toast.error('複製失敗，請手動複製')
+    })
   }
 
   return (
@@ -91,6 +105,25 @@ export function Sidebar({ role, username, logo, storeName }: SidebarProps) {
             <UserCog className="w-4 h-4 shrink-0" />
             帳號管理
           </Link>
+        )}
+
+        {/* Booking link for STORE accounts */}
+        {role === 'STORE' && storeId && (
+          <div className="mt-3 px-3 py-3 rounded-xl bg-primary/5 border border-primary/20">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Link2 className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-xs font-semibold text-primary">我的預約連結</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground break-all mb-2 leading-relaxed">
+              /book/{username}
+            </p>
+            <button
+              onClick={handleCopyLink}
+              className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg px-2 py-1.5 transition-colors"
+            >
+              <Copy className="w-3 h-3" /> 複製連結
+            </button>
+          </div>
         )}
       </nav>
 

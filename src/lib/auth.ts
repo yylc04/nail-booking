@@ -16,6 +16,7 @@ export interface StorePayload {
   userId: string
   username: string
   role: 'SUPER_ADMIN' | 'STORE'
+  storeId?: string
 }
 
 export interface CustomerPayload {
