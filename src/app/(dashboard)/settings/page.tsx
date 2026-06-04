@@ -19,7 +19,6 @@ import Image from 'next/image'
 
 const DAYS_ZH = ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
 const DAYS_SHORT = ['日', '一', '二', '三', '四', '五', '六']
-const STORE_ID = 'default-store'
 
 interface BusinessSlot { dayOfWeek: number; time: string }
 interface BankAccount { bankName: string; accountNumber: string; accountName: string }

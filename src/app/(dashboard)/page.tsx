@@ -7,8 +7,6 @@ import { CalendarCheck, Users, TrendingUp, Clock, Sparkles } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
-const STORE_ID = 'default-store'
-
 const STATUS_LABEL: Record<string, string> = {
   PENDING: '待確認', CONFIRMED: '已確認', COMPLETED: '已完成', CANCELLED: '已取消',
 }
@@ -23,6 +21,24 @@ export default async function DashboardPage() {
   const session = await getStoreSession()
   if (!session) redirect('/login')
 
+  const storeId = session.storeId
+
+  // No store assigned (e.g. SUPER_ADMIN) - show empty dashboard
+  if (!storeId) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <Sparkles className="w-6 h-6 text-primary" />
+          <div>
+            <h1 className="text-xl font-bold text-foreground">歡迎回來，{session.username}！</h1>
+            <p className="text-sm text-muted-foreground">{format(new Date(), 'yyyy年M月d日 EEEE', { locale: zhTW })}</p>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">此帳號為超級管理員，請前往帳號管理頁面。</p>
+      </div>
+    )
+  }
+
   const now = new Date()
   const monthStart = startOfMonth(now)
   const monthEnd = endOfMonth(now)
@@ -32,24 +48,24 @@ export default async function DashboardPage() {
 
   const [monthlyAppts, todayAppts, upcomingAppts, totalCustomers] = await Promise.all([
     prisma.appointment.findMany({
-      where: { storeId: STORE_ID, date: { gte: monthStart, lte: monthEnd }, status: { not: 'CANCELLED' } },
+      where: { storeId, date: { gte: monthStart, lte: monthEnd }, status: { not: 'CANCELLED' } },
       select: { totalPrice: true, status: true },
     }),
     prisma.appointment.findMany({
-      where: { storeId: STORE_ID, date: { gte: todayStart, lte: todayEnd }, status: { not: 'CANCELLED' } },
+      where: { storeId, date: { gte: todayStart, lte: todayEnd }, status: { not: 'CANCELLED' } },
       include: { customer: true, services: true },
       orderBy: { startTime: 'asc' },
     }),
     prisma.appointment.findMany({
       where: {
-        storeId: STORE_ID,
+        storeId,
         date: { gte: todayStart, lte: upcomingEnd },
         status: { in: ['PENDING', 'CONFIRMED'] },
       },
       include: { customer: true, services: true },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
     }),
-    prisma.customer.count({ where: { storeId: STORE_ID } }),
+    prisma.customer.count({ where: { storeId } }),
   ])
 
   const monthlyRevenue = monthlyAppts
@@ -65,7 +81,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <Sparkles className="w-6 h-6 text-primary" />
         <div>
@@ -74,7 +89,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(s => (
           <Card key={s.label} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
@@ -94,7 +108,6 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Today */}
         <Card className="border-border/50 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -124,7 +137,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Upcoming */}
         <Card className="border-border/50 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
