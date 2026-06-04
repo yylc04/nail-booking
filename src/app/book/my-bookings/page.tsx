@@ -59,7 +59,7 @@ export default function MyBookingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-fuchsia-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur border-b border-border/50 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">

@@ -398,8 +398,8 @@ export default function SettingsPage() {
                       <span className="text-[9px] sm:text-[10px] bg-red-100 text-red-600 rounded px-0.5 sm:px-1 py-0.5 font-medium">公休</span>
                     ) : daySlots.length > 0 ? (
                       <div className="space-y-0.5">
-                        <span className="hidden sm:block text-[10px] bg-pink-100 text-pink-700 rounded px-1 py-0.5 leading-tight">{daySlots[0]}</span>
-                        <span className="sm:hidden block w-2 h-2 rounded-full bg-pink-400 mx-auto" />
+                        <span className="hidden sm:block text-[10px] bg-primary/20 text-[#DB2777] rounded px-1 py-0.5 leading-tight">{daySlots[0]}</span>
+                        <span className="sm:hidden block w-2 h-2 rounded-full bg-primary mx-auto" />
                         {daySlots.length > 1 && (
                           <span className="hidden sm:block text-[10px] text-muted-foreground">+{daySlots.length - 1}</span>
                         )}
@@ -416,7 +416,7 @@ export default function SettingsPage() {
 
           {/* Legend */}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-pink-100 border border-pink-200" />有時段</div>
+            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-primary/20 border border-primary/30" />有時段</div>
             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-100 border border-red-200" />公休</div>
             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded ring-2 ring-primary/50" />今天</div>
           </div>
@@ -548,7 +548,7 @@ export default function SettingsPage() {
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {modal.slots.map(t => (
-                          <span key={t} className="inline-flex items-center gap-1 text-xs bg-pink-100 text-pink-700 rounded-full px-2.5 py-1 border border-pink-200">
+                          <span key={t} className="inline-flex items-center gap-1 text-xs bg-primary/20 text-[#DB2777] rounded-full px-2.5 py-1 border border-primary/30">
                             {t}
                             <button onClick={() => removeSlotFromModal(t)} className="hover:text-red-600"><X className="w-2.5 h-2.5" /></button>
                           </span>

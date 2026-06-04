@@ -38,7 +38,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FFF7FB] via-[#FFECF5] to-[#FFD9EC] p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#FFF7FB] p-4">
       <div className="w-full max-w-md">
         {/* Brand */}
         <div className="text-center mb-8">

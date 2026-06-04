@@ -73,10 +73,10 @@ export default async function DashboardPage() {
     .reduce((s, a) => s + a.totalPrice, 0)
 
   const stats = [
-    { label: '本月預約', value: monthlyAppts.length, icon: CalendarCheck, color: 'text-pink-500', bg: 'bg-pink-50' },
-    { label: '本月營收', value: `NT$ ${monthlyRevenue.toLocaleString()}`, icon: TrendingUp, color: 'text-rose-500', bg: 'bg-rose-50' },
-    { label: '總客戶數', value: totalCustomers, icon: Users, color: 'text-fuchsia-500', bg: 'bg-fuchsia-50' },
-    { label: '今日預約', value: todayAppts.length, icon: Clock, color: 'text-purple-500', bg: 'bg-purple-50' },
+    { label: '本月預約', value: monthlyAppts.length, icon: CalendarCheck, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: '本月營收', value: `NT$ ${monthlyRevenue.toLocaleString()}`, icon: TrendingUp, color: 'text-[#DB2777]', bg: 'bg-primary/10' },
+    { label: '總客戶數', value: totalCustomers, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: '今日預約', value: todayAppts.length, icon: Clock, color: 'text-primary', bg: 'bg-primary/10' },
   ]
 
   return (
