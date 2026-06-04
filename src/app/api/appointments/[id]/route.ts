@@ -2,10 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getStoreSession } from '@/lib/auth'
 
+async function checkOwnership(id: string, storeId: string) {
+  const appt = await prisma.appointment.findUnique({ where: { id }, select: { storeId: true } })
+  return appt?.storeId === storeId
+}
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getStoreSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const storeId = session.storeId
+  if (!storeId) return NextResponse.json({ error: 'No store assigned' }, { status: 400 })
+
   const { id } = await params
+  if (!await checkOwnership(id, storeId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const appt = await prisma.appointment.findUnique({
     where: { id },
     include: { customer: true, services: true },
@@ -32,6 +44,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const storeId = storeSession.storeId
+  if (!storeId) return NextResponse.json({ error: 'No store assigned' }, { status: 400 })
+
+  if (!await checkOwnership(id, storeId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const appt = await prisma.appointment.update({
     where: { id },
     data: {
@@ -50,7 +69,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getStoreSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const storeId = session.storeId
+  if (!storeId) return NextResponse.json({ error: 'No store assigned' }, { status: 400 })
+
   const { id } = await params
+  if (!await checkOwnership(id, storeId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   await prisma.appointment.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

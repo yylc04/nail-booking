@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getStoreSession } from '@/lib/auth'
 
+async function checkOwnership(id: string, storeId: string) {
+  const service = await prisma.service.findUnique({ where: { id }, select: { storeId: true } })
+  return service?.storeId === storeId
+}
+
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getStoreSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -10,6 +15,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!storeId) return NextResponse.json({ error: 'No store assigned' }, { status: 400 })
 
   const { id } = await params
+  if (!await checkOwnership(id, storeId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const body = await req.json()
   const { name, price, duration, description, categoryName, isActive } = body
 
@@ -43,7 +52,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getStoreSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const storeId = session.storeId
+  if (!storeId) return NextResponse.json({ error: 'No store assigned' }, { status: 400 })
+
   const { id } = await params
+  if (!await checkOwnership(id, storeId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   await prisma.service.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }
