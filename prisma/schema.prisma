@@ -19,6 +19,11 @@ enum AppointmentStatus {
   CANCELLED
 }
 
+enum QuoteStatus {
+  PENDING
+  REPLIED
+}
+
 model StoreUser {
   id           String    @id @default(cuid())
   username     String    @unique
@@ -61,6 +66,7 @@ model Store {
   bankAccounts    BankAccount[]
   portfolio       Portfolio[]
   storeInfoBlocks StoreInfoBlock[]
+  quotes          Quote[]
 }
 
 model BusinessHour {
@@ -216,6 +222,24 @@ model StoreInfoBlock {
   title   String
   content String @db.Text
   order   Int    @default(0)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+model Quote {
+  id            String      @id @default(cuid())
+  storeId       String
+  quoteNo       String      @unique
+  customerName  String
+  customerPhone String
+  note          String?     @db.Text
+  images        String      @db.Text
+  status        QuoteStatus @default(PENDING)
+  replyPrice    Int?
+  replyNote     String?     @db.Text
+  repliedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }

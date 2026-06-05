@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import {
   Sparkles, ShoppingCart, ChevronLeft, ChevronRight, Check, X,
   Wand2, Banknote, Plus, MapPin, MessageCircle, AtSign,
-  ExternalLink, ImageIcon, Grid3X3,
+  ExternalLink, ImageIcon, Grid3X3, Camera,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,7 @@ import {
 } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import Image from 'next/image'
+import Link from 'next/link'
 
 interface Service { id: string; name: string; price: number; duration: number; description?: string }
 interface Category { id: string; name: string; services: Service[] }
@@ -40,6 +41,8 @@ const STEPS = ['選擇服務', '選擇時段', '填寫資料', '完成預約']
 
 export default function BookPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const accountId = params.accountId as string
 
   const [tab, setTab] = useState<Tab>('portfolio')
@@ -80,13 +83,33 @@ export default function BookPage() {
   useEffect(() => {
     if (!accountId) return
     fetch(`/api/book/services?accountId=${accountId}`).then(r => r.json()).then(data => {
-      setCategories(data.categories || [])
+      const cats: Category[] = data.categories || []
+      setCategories(cats)
       setStore(data.store)
       setPortfolio(data.portfolio || [])
       setStoreInfoBlocks(data.storeInfoBlocks || [])
+
+      // Handle ?customService=自訂款式&customPrice=1800 from quote status page
+      const customService = searchParams.get('customService')
+      const customPrice = searchParams.get('customPrice')
+      if (customService && customPrice) {
+        const price = parseInt(customPrice, 10)
+        // Use first available service for id/duration fallback
+        const firstSvc = cats.flatMap(c => c.services)[0]
+        if (firstSvc && !isNaN(price)) {
+          setCart([{ id: firstSvc.id, name: customService, price, duration: firstSvc.duration, qty: 1 }])
+          setStep(1) // skip service selection, go to date/time
+          // Clean URL params without navigation
+          const url = new URL(window.location.href)
+          url.searchParams.delete('customService')
+          url.searchParams.delete('customPrice')
+          url.searchParams.delete('customNote')
+          window.history.replaceState({}, '', url.toString())
+        }
+      }
     })
     fetch(`/api/book/deposit-info?accountId=${accountId}`).then(r => r.json()).then(setDepositInfo)
-  }, [accountId])
+  }, [accountId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function addToCart(svc: Service) {
     setCart(prev => {
@@ -641,6 +664,9 @@ export default function BookPage() {
                 })}
               </div>
             )}
+
+            {/* Quote entry card */}
+            <QuoteEntryCard accountId={accountId} />
           </div>
         )}
 
@@ -681,6 +707,9 @@ export default function BookPage() {
             {categories.length === 0 && (
               <div className="text-center py-12 text-sm text-muted-foreground">尚未設定服務項目</div>
             )}
+
+            {/* Quote entry card */}
+            <QuoteEntryCard accountId={accountId} />
           </div>
         )}
 
@@ -759,5 +788,21 @@ export default function BookPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+function QuoteEntryCard({ accountId }: { accountId: string }) {
+  return (
+    <Link href={`/book/${accountId}/quote`}>
+      <div className="flex items-center gap-4 bg-white rounded-2xl border border-primary/20 shadow-sm p-4 hover:shadow-md hover:border-primary/40 transition-all group cursor-pointer">
+        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+          <Camera className="w-6 h-6 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground">有想做的款式嗎？</p>
+          <p className="text-xs text-muted-foreground mt-0.5">上傳圖片讓店家幫你報價 →</p>
+        </div>
+      </div>
+    </Link>
   )
 }
