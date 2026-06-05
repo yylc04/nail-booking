@@ -38,14 +38,29 @@ export async function GET(req: NextRequest) {
 
   if (daySlots.length === 0) return NextResponse.json({ slots: [], closed: false })
 
-  const appointments = await prisma.appointment.findMany({
-    where: { storeId, date, status: { notIn: ['CANCELLED'] } },
-    select: { startTime: true, endTime: true },
-  })
+  const [appointments, heldQuotes] = await Promise.all([
+    prisma.appointment.findMany({
+      where: { storeId, date, status: { notIn: ['CANCELLED'] } },
+      select: { startTime: true, endTime: true },
+    }),
+    prisma.quote.findMany({
+      where: {
+        storeId,
+        holdDate: date,
+        quoteMode: 'QUOTE_HOLD',
+        status: { in: ['PENDING', 'REPLIED'] },
+        holdUntil: { gt: new Date() },
+      },
+      select: { holdTime: true },
+    }),
+  ])
+
+  const heldTimes = new Set(heldQuotes.map(q => q.holdTime).filter(Boolean) as string[])
 
   const available = daySlots
     .map(s => s.time)
     .filter(slotTime => {
+      if (heldTimes.has(slotTime)) return false
       const slotStart = timeToMinutes(slotTime)
       const slotEnd = slotStart + duration
       return !appointments.some(a => {

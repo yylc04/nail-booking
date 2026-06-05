@@ -9,6 +9,14 @@ export async function GET(req: NextRequest) {
   const storeId = session.storeId
   if (!storeId) return NextResponse.json([])
 
+  // Lazy auto-cancel: PENDING appointments whose date is in the past get CANCELLED
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  await prisma.appointment.updateMany({
+    where: { storeId, status: 'PENDING', date: { lt: yesterday } },
+    data: { status: 'CANCELLED' },
+  })
+
   const { searchParams } = new URL(req.url)
   const month = searchParams.get('month')
   const search = searchParams.get('search') || ''

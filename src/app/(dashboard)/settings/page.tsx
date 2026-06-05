@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Settings, Upload, Plus, Trash2, Wand2, Banknote, FileText,
   ChevronLeft, ChevronRight, X, Check, GripVertical, AtSign,
-  MapPin, MessageCircle,
+  MapPin, MessageCircle, MessageSquareMore,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, subMonths, isBefore, startOfDay } from 'date-fns'
@@ -75,6 +75,10 @@ export default function SettingsPage() {
   const [depositAmount, setDepositAmount] = useState('')
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
 
+  // Quote mode
+  const [quoteMode, setQuoteMode] = useState<'QUOTE_ONLY' | 'QUOTE_HOLD'>('QUOTE_ONLY')
+  const [quoteHoldHours, setQuoteHoldHours] = useState('24')
+
   const [globalSaving, setGlobalSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showApplyMonthDialog, setShowApplyMonthDialog] = useState(false)
@@ -97,6 +101,8 @@ export default function SettingsPage() {
       setDepositEnabled(data?.depositEnabled || false)
       setDepositAmount(data?.depositAmount ? String(data.depositAmount) : '0')
       setBankAccounts(data?.bankAccounts || [])
+      setQuoteMode(data?.quoteMode || 'QUOTE_ONLY')
+      setQuoteHoldHours(data?.quoteHoldHours ? String(data.quoteHoldHours) : '24')
       setTemplates(data?.businessSlots?.map((s: { dayOfWeek: number; time: string }) => ({ dayOfWeek: s.dayOfWeek, time: s.time })) || [])
       setInfoBlocks(data?.storeInfoBlocks?.map((b: { title: string; content: string }) => ({ title: b.title, content: b.content })) || [])
       setLoading(false)
@@ -280,6 +286,8 @@ export default function SettingsPage() {
         depositEnabled, depositAmount,
         bankAccounts: bankAccounts.filter(b => b.bankName || b.accountNumber),
         storeInfoBlocks: infoBlocks,
+        quoteMode,
+        quoteHoldHours,
       }),
     })
     setGlobalSaving(false)
@@ -617,6 +625,61 @@ export default function SettingsPage() {
                 ))}
               </div>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Quote mode ── */}
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><MessageSquareMore className="w-4 h-4 text-primary" /> 詢價設定</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">設定客人傳圖詢價的模式</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={() => setQuoteMode('QUOTE_ONLY')}
+              className={`text-left p-4 rounded-2xl border-2 transition-all ${quoteMode === 'QUOTE_ONLY' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${quoteMode === 'QUOTE_ONLY' ? 'border-primary' : 'border-muted-foreground'}`}>
+                  {quoteMode === 'QUOTE_ONLY' && <span className="w-2 h-2 rounded-full bg-primary" />}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">模式一：純詢價</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">客人上傳圖片後等店家報價，報價後自行預約</p>
+                </div>
+              </div>
+            </button>
+            <button
+              onClick={() => setQuoteMode('QUOTE_HOLD')}
+              className={`text-left p-4 rounded-2xl border-2 transition-all ${quoteMode === 'QUOTE_HOLD' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${quoteMode === 'QUOTE_HOLD' ? 'border-primary' : 'border-muted-foreground'}`}>
+                  {quoteMode === 'QUOTE_HOLD' && <span className="w-2 h-2 rounded-full bg-primary" />}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">模式二：傳圖卡位</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">客人上傳圖片同時選擇時段，時段暫時保留等待報價確認</p>
+                </div>
+              </div>
+            </button>
+          </div>
+          {quoteMode === 'QUOTE_HOLD' && (
+            <div className="space-y-2 pt-1">
+              <Label className="text-xs">時段保留時間（小時）</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  value={quoteHoldHours}
+                  onChange={e => setQuoteHoldHours(e.target.value)}
+                  min={1}
+                  max={168}
+                  className="w-28"
+                />
+                <span className="text-xs text-muted-foreground">小時（預設 24 小時）</span>
+              </div>
+              <p className="text-xs text-muted-foreground">店家回覆報價後，若客人超過此時間未確認則自動釋放時段</p>
+            </div>
           )}
         </CardContent>
       </Card>

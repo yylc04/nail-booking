@@ -1,15 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { MessageSquareMore, Clock, CheckCircle2, Search, X, ZoomIn } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { MessageSquareMore, Clock, CheckCircle2, Search, X, ZoomIn, CalendarCheck, XCircle, AlertCircle, Ban } from 'lucide-react'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import { format, differenceInSeconds } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import Image from 'next/image'
 
@@ -20,7 +24,11 @@ interface QuoteItem {
   customerPhone: string
   note: string | null
   images: string[]
-  status: 'PENDING' | 'REPLIED'
+  status: 'PENDING' | 'REPLIED' | 'CONFIRMED' | 'REJECTED' | 'EXPIRED'
+  quoteMode: 'QUOTE_ONLY' | 'QUOTE_HOLD'
+  holdDate: string | null
+  holdTime: string | null
+  holdUntil: string | null
   replyPrice: number | null
   replyNote: string | null
   repliedAt: string | null
@@ -29,6 +37,20 @@ interface QuoteItem {
 
 type Filter = 'ALL' | 'PENDING' | 'REPLIED'
 
+function Countdown({ holdUntil }: { holdUntil: string }) {
+  const [secs, setSecs] = useState(() => differenceInSeconds(new Date(holdUntil), new Date()))
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null)
+  useEffect(() => {
+    ref.current = setInterval(() => setSecs(differenceInSeconds(new Date(holdUntil), new Date())), 1000)
+    return () => { if (ref.current) clearInterval(ref.current) }
+  }, [holdUntil])
+  if (secs <= 0) return <span className="text-red-600">已過期</span>
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  return <span className="font-mono">{h > 0 ? `${h}h ` : ''}{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}</span>
+}
+
 export default function QuotesPage() {
   const [quotes, setQuotes] = useState<QuoteItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,6 +58,8 @@ export default function QuotesPage() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<QuoteItem | null>(null)
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
+  const [rejectId, setRejectId] = useState<string | null>(null)
+  const [rejecting, setRejecting] = useState(false)
 
   // Reply form
   const [replyPrice, setReplyPrice] = useState('')
@@ -81,6 +105,22 @@ export default function QuotesPage() {
     loadQuotes(filter)
   }
 
+  async function handleReject() {
+    if (!rejectId) return
+    setRejecting(true)
+    const res = await fetch(`/api/quotes/${rejectId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reject' }),
+    })
+    setRejecting(false)
+    if (!res.ok) { toast.error('操作失敗'); return }
+    toast.success('已拒絕，時段已釋放')
+    setRejectId(null)
+    setSelected(null)
+    loadQuotes(filter)
+  }
+
   const filtered = quotes.filter(q => {
     if (!search) return true
     const s = search.toLowerCase()
@@ -90,6 +130,14 @@ export default function QuotesPage() {
   })
 
   const pendingCount = quotes.filter(q => q.status === 'PENDING').length
+
+  const statusBadge = (q: QuoteItem) => {
+    if (q.status === 'REPLIED') return <Badge className="bg-green-100 text-green-700 hover:bg-green-100"><CheckCircle2 className="w-3 h-3 mr-1" />已回覆</Badge>
+    if (q.status === 'CONFIRMED') return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100"><CalendarCheck className="w-3 h-3 mr-1" />已確認</Badge>
+    if (q.status === 'REJECTED') return <Badge className="bg-gray-100 text-gray-500 hover:bg-gray-100"><XCircle className="w-3 h-3 mr-1" />已拒絕</Badge>
+    if (q.status === 'EXPIRED') return <Badge className="bg-red-100 text-red-600 hover:bg-red-100"><AlertCircle className="w-3 h-3 mr-1" />已過期</Badge>
+    return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100"><Clock className="w-3 h-3 mr-1" />待回覆</Badge>
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-4xl">
@@ -154,22 +202,27 @@ export default function QuotesPage() {
                   <p className="text-xs text-muted-foreground mt-1">
                     {format(new Date(q.createdAt), 'yyyy/MM/dd HH:mm', { locale: zhTW })}
                   </p>
+                  {/* QUOTE_HOLD info */}
+                  {q.quoteMode === 'QUOTE_HOLD' && q.holdDate && q.holdTime && (
+                    <p className="text-xs text-blue-700 mt-1 flex items-center gap-1">
+                      <CalendarCheck className="w-3 h-3" />
+                      {format(new Date(q.holdDate), 'yyyy/MM/dd', { locale: zhTW })} {q.holdTime}
+                      {q.holdUntil && (q.status === 'PENDING' || q.status === 'REPLIED') && (
+                        <span className="text-amber-600 ml-1">（剩 <Countdown holdUntil={q.holdUntil} />）</span>
+                      )}
+                    </p>
+                  )}
                   {q.note && (
                     <p className="text-xs text-muted-foreground mt-1 truncate">{q.note}</p>
                   )}
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-2">
-                  <Badge variant={q.status === 'REPLIED' ? 'default' : 'secondary'}
-                    className={q.status === 'REPLIED'
-                      ? 'bg-green-100 text-green-700 hover:bg-green-100'
-                      : 'bg-amber-100 text-amber-700 hover:bg-amber-100'
-                    }
-                  >
-                    {q.status === 'REPLIED'
-                      ? <><CheckCircle2 className="w-3 h-3 mr-1" />已回覆</>
-                      : <><Clock className="w-3 h-3 mr-1" />待回覆</>
-                    }
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    {statusBadge(q)}
+                    {q.quoteMode === 'QUOTE_HOLD' && (
+                      <Badge variant="outline" className="text-[10px] text-blue-700 border-blue-300 bg-blue-50">已卡位</Badge>
+                    )}
+                  </div>
                   <div className="flex gap-1">
                     {q.images.slice(0, 3).map((img, i) => (
                       <div key={i} className="w-8 h-8 rounded-lg overflow-hidden border border-border/40">
@@ -188,15 +241,11 @@ export default function QuotesPage() {
       <Dialog open={!!selected} onOpenChange={o => !o && setSelected(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               <span>{selected?.quoteNo}</span>
-              {selected && (
-                <Badge className={selected.status === 'REPLIED'
-                  ? 'bg-green-100 text-green-700 text-xs'
-                  : 'bg-amber-100 text-amber-700 text-xs'
-                }>
-                  {selected.status === 'REPLIED' ? '已回覆' : '待回覆'}
-                </Badge>
+              {selected && statusBadge(selected)}
+              {selected?.quoteMode === 'QUOTE_HOLD' && (
+                <Badge variant="outline" className="text-[10px] text-blue-700 border-blue-300 bg-blue-50">已卡位</Badge>
               )}
             </DialogTitle>
           </DialogHeader>
@@ -218,6 +267,22 @@ export default function QuotesPage() {
                   <p className="font-medium">{format(new Date(selected.createdAt), 'yyyy/MM/dd HH:mm', { locale: zhTW })}</p>
                 </div>
               </div>
+
+              {/* QUOTE_HOLD hold info */}
+              {selected.quoteMode === 'QUOTE_HOLD' && selected.holdDate && selected.holdTime && (
+                <div className={`rounded-xl p-3 text-sm space-y-1 ${selected.status === 'EXPIRED' ? 'bg-red-50 border border-red-200/60' : 'bg-blue-50 border border-blue-200/60'}`}>
+                  <p className={`text-xs font-semibold ${selected.status === 'EXPIRED' ? 'text-red-700' : 'text-blue-800'}`}>卡位資訊</p>
+                  <p className={selected.status === 'EXPIRED' ? 'text-red-700' : 'text-blue-700'}>
+                    {format(new Date(selected.holdDate), 'yyyy/MM/dd（EEEE）', { locale: zhTW })} {selected.holdTime}
+                  </p>
+                  {selected.holdUntil && (selected.status === 'PENDING' || selected.status === 'REPLIED') && (
+                    <p className="text-xs text-amber-700">保留截止：<Countdown holdUntil={selected.holdUntil} /></p>
+                  )}
+                  {selected.status === 'EXPIRED' && (
+                    <p className="text-xs text-red-600">已超過保留時間，時段自動釋放</p>
+                  )}
+                </div>
+              )}
 
               {/* Images */}
               <div className="space-y-2">
@@ -247,7 +312,7 @@ export default function QuotesPage() {
               )}
 
               {/* Existing reply */}
-              {selected.status === 'REPLIED' && (
+              {(selected.status === 'REPLIED' || selected.status === 'CONFIRMED') && (
                 <div className="rounded-xl bg-green-50 border border-green-200/60 p-3 space-y-1">
                   <p className="text-xs font-semibold text-green-800">已回覆</p>
                   {selected.replyPrice != null && (
@@ -260,34 +325,49 @@ export default function QuotesPage() {
                 </div>
               )}
 
-              {/* Reply form */}
-              <div className="space-y-3 pt-1 border-t border-border/40">
-                <p className="text-sm font-semibold">
-                  {selected.status === 'REPLIED' ? '修改回覆' : '送出回覆'}
-                </p>
-                <div className="space-y-2">
-                  <Label className="text-xs">報價金額（NT$）</Label>
-                  <Input
-                    type="number"
-                    value={replyPrice}
-                    onChange={e => setReplyPrice(e.target.value)}
-                    placeholder="例：1800"
-                    min={0}
-                  />
+              {/* Actions: reject for QUOTE_HOLD PENDING */}
+              {selected.quoteMode === 'QUOTE_HOLD' && (selected.status === 'PENDING' || selected.status === 'REPLIED') && (
+                <div className="pt-1 border-t border-border/40">
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 text-destructive border-destructive/30 hover:bg-destructive/5"
+                    onClick={() => setRejectId(selected.id)}
+                  >
+                    <Ban className="w-4 h-4" /> 拒絕此詢價（釋放時段）
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">回覆說明</Label>
-                  <Textarea
-                    value={replyNote}
-                    onChange={e => setReplyNote(e.target.value)}
-                    placeholder="例如：此款需加收手繪費用 NT$300，整體約 NT$2,100"
-                    rows={3}
-                  />
+              )}
+
+              {/* Reply form (not for CONFIRMED/REJECTED/EXPIRED) */}
+              {selected.status !== 'CONFIRMED' && selected.status !== 'REJECTED' && selected.status !== 'EXPIRED' && (
+                <div className="space-y-3 pt-1 border-t border-border/40">
+                  <p className="text-sm font-semibold">
+                    {selected.status === 'REPLIED' ? '修改回覆' : '送出回覆'}
+                  </p>
+                  <div className="space-y-2">
+                    <Label className="text-xs">報價金額（NT$）</Label>
+                    <Input
+                      type="number"
+                      value={replyPrice}
+                      onChange={e => setReplyPrice(e.target.value)}
+                      placeholder="例：1800"
+                      min={0}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">回覆說明</Label>
+                    <Textarea
+                      value={replyNote}
+                      onChange={e => setReplyNote(e.target.value)}
+                      placeholder="例如：此款需加收手繪費用 NT$300，整體約 NT$2,100"
+                      rows={3}
+                    />
+                  </div>
+                  <Button className="w-full min-h-[44px]" onClick={handleReply} disabled={replying}>
+                    {replying ? '送出中...' : '送出回覆'}
+                  </Button>
                 </div>
-                <Button className="w-full min-h-[44px]" onClick={handleReply} disabled={replying}>
-                  {replying ? '送出中...' : '送出回覆'}
-                </Button>
-              </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -303,6 +383,28 @@ export default function QuotesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Reject confirm */}
+      <AlertDialog open={!!rejectId} onOpenChange={o => !o && setRejectId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定拒絕此詢價？</AlertDialogTitle>
+            <AlertDialogDescription>
+              拒絕後，卡位的時段將立即釋放，客人將無法再確認預約。此操作無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReject}
+              disabled={rejecting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {rejecting ? '處理中...' : '確定拒絕'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

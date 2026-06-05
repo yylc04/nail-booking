@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { format } from 'date-fns'
-import { ClipboardList, Plus, Search, Pencil, Trash2, CheckCircle } from 'lucide-react'
+import { ClipboardList, Plus, Search, Pencil, Trash2, CheckCircle, ArrowUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,6 +61,8 @@ export default function AppointmentsPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [categories, setCategories] = useState<ServiceCategory[]>([])
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('ALL')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Appointment | null>(null)
@@ -77,7 +79,7 @@ export default function AppointmentsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     const [apptRes, custRes, svcRes] = await Promise.all([
-      fetch(`/api/appointments?search=${search}`),
+      fetch('/api/appointments'),
       fetch('/api/customers'),
       fetch('/api/services'),
     ])
@@ -86,9 +88,31 @@ export default function AppointmentsPage() {
     setCustomers(custs)
     setCategories(cats)
     setLoading(false)
-  }, [search])
+  }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  const displayedAppointments = useMemo(() => {
+    let list = appointments
+    if (statusFilter !== 'ALL') list = list.filter(a => a.status === statusFilter)
+    if (search) {
+      const s = search.toLowerCase()
+      list = list.filter(a =>
+        a.customer.name.toLowerCase().includes(s) || a.customer.phone.includes(s)
+      )
+    }
+    return [...list].sort((a, b) => {
+      const diff = new Date(a.date).getTime() - new Date(b.date).getTime()
+        || a.startTime.localeCompare(b.startTime)
+      return sortDir === 'desc' ? -diff : diff
+    })
+  }, [appointments, statusFilter, search, sortDir])
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: appointments.length }
+    for (const a of appointments) counts[a.status] = (counts[a.status] || 0) + 1
+    return counts
+  }, [appointments])
 
   function openCreate() {
     setEditing(null)
@@ -162,27 +186,67 @@ export default function AppointmentsPage() {
         </Button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="搜尋客戶姓名或電話..."
-          className="pl-9 min-h-[44px]"
-        />
+      {/* Search + sort */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="搜尋客戶姓名或電話..."
+            className="pl-9 min-h-[44px]"
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="min-h-[44px] w-11 shrink-0"
+          title={sortDir === 'desc' ? '目前：最新在上' : '目前：最舊在上'}
+          onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+        >
+          <ArrowUpDown className={`w-4 h-4 transition-transform ${sortDir === 'asc' ? 'rotate-180' : ''}`} />
+        </Button>
+      </div>
+
+      {/* Status filter */}
+      <div className="flex gap-1.5 flex-wrap">
+        {[
+          { key: 'ALL', label: '全部' },
+          { key: 'PENDING', label: '待確認' },
+          { key: 'CONFIRMED', label: '已確認' },
+          { key: 'COMPLETED', label: '已完成' },
+          { key: 'CANCELLED', label: '已取消' },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setStatusFilter(key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+              statusFilter === key
+                ? 'bg-primary text-white border-primary'
+                : 'bg-white border-border/60 text-muted-foreground hover:border-primary/40'
+            }`}
+          >
+            {label}
+            {statusCounts[key] != null && statusCounts[key] > 0 && (
+              <span className={`ml-1.5 text-[10px] ${statusFilter === key ? 'opacity-80' : 'opacity-60'}`}>
+                {statusCounts[key]}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       <Card className="border-border/50 shadow-sm">
         <CardContent className="p-0">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">載入中...</div>
-          ) : appointments.length === 0 ? (
+          ) : displayedAppointments.length === 0 ? (
             <div className="p-8 text-center space-y-3">
-              <p className="text-muted-foreground text-sm">尚無預約記錄</p>
+              <p className="text-muted-foreground text-sm">{search || statusFilter !== 'ALL' ? '查無符合條件的預約' : '尚無預約記錄'}</p>
               <button onClick={openCreate} className="text-sm text-primary font-medium hover:underline">+ 新增第一筆預約</button>
             </div>
           ) : (
             <div className="divide-y divide-border/50">
-              {appointments.map(a => (
+              {displayedAppointments.map(a => (
                 <div key={a.id} className="p-4 hover:bg-accent/30 transition-colors">
                   <div className="flex items-start gap-3">
                     {/* Date column */}

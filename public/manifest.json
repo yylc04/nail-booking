@@ -1,0 +1,33 @@
+{
+  "name": "Blooming♡ 美甲預約",
+  "short_name": "Blooming♡",
+  "description": "專業美甲工作室線上預約平台",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf9f8",
+  "theme_color": "#DB2777",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "線上預約",
+      "url": "/book",
+      "description": "立即線上預約美甲服務"
+    }
+  ],
+  "categories": ["beauty", "lifestyle"],
+  "lang": "zh-TW"
+}

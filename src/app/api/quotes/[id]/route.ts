@@ -10,7 +10,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params
   const body = await req.json()
-  const { replyPrice, replyNote } = body
+  const { action, replyPrice, replyNote } = body
+
+  if (action === 'reject') {
+    const result = await prisma.quote.updateMany({
+      where: { id, storeId },
+      data: { status: 'REJECTED' },
+    })
+    if (result.count === 0) return NextResponse.json({ error: '找不到此詢價' }, { status: 404 })
+    return NextResponse.json({ ok: true })
+  }
 
   const quote = await prisma.quote.updateMany({
     where: { id, storeId },

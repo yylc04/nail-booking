@@ -35,6 +35,7 @@ export async function PUT(req: NextRequest) {
     name, logo, address, metroInfo, lineAccount, igAccount, tagline, introduction,
     bookingNotes, businessHours, businessSlots, exceptionDates,
     depositEnabled, depositAmount, bankAccounts, storeInfoBlocks,
+    quoteMode, quoteHoldHours,
   } = body
 
   const store = await prisma.store.update({
@@ -51,6 +52,8 @@ export async function PUT(req: NextRequest) {
       ...(bookingNotes !== undefined ? { bookingNotes } : {}),
       ...(depositEnabled !== undefined ? { depositEnabled } : {}),
       ...(depositAmount !== undefined ? { depositAmount: Number(depositAmount) } : {}),
+      ...(quoteMode !== undefined ? { quoteMode } : {}),
+      ...(quoteHoldHours !== undefined ? { quoteHoldHours: Number(quoteHoldHours) } : {}),
     },
   })
 

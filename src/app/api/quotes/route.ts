@@ -9,7 +9,18 @@ export async function GET(req: NextRequest) {
   if (!storeId) return NextResponse.json([])
 
   const { searchParams } = new URL(req.url)
-  const status = searchParams.get('status') // 'PENDING' | 'REPLIED' | null (all)
+  const status = searchParams.get('status')
+
+  // Lazy expiry: mark expired QUOTE_HOLD quotes
+  await prisma.quote.updateMany({
+    where: {
+      storeId,
+      quoteMode: 'QUOTE_HOLD',
+      status: { in: ['PENDING', 'REPLIED'] },
+      holdUntil: { lt: new Date() },
+    },
+    data: { status: 'EXPIRED' },
+  })
 
   const quotes = await prisma.quote.findMany({
     where: {
