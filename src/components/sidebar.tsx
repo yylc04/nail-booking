@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Sparkles, LayoutDashboard, CalendarDays, ClipboardList, Users, Gem,
-  Settings, UserCog, LogOut, Link2, Copy, Menu, X,
+  Settings, UserCog, LogOut, Link2, Copy, Menu, X, ImageIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -25,6 +25,7 @@ const navItems = [
   { href: '/appointments', label: '預約清單', icon: ClipboardList },
   { href: '/customers', label: '客戶管理', icon: Users },
   { href: '/services', label: '服務項目', icon: Gem },
+  { href: '/portfolio', label: '作品集', icon: ImageIcon },
   { href: '/settings', label: '營業設定', icon: Settings },
 ]
 

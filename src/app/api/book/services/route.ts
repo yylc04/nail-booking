@@ -15,18 +15,36 @@ export async function GET(req: NextRequest) {
   const accountId = searchParams.get('accountId')
   const storeId = await getStoreIdByAccount(accountId)
 
-  const categories = await prisma.serviceCategory.findMany({
-    where: { storeId },
-    include: {
-      services: { where: { storeId, isActive: true }, orderBy: { order: 'asc' } },
-    },
-    orderBy: { order: 'asc' },
-  })
+  const [categories, store, portfolio, storeInfoBlocks] = await Promise.all([
+    prisma.serviceCategory.findMany({
+      where: { storeId },
+      include: {
+        services: { where: { storeId, isActive: true }, orderBy: { order: 'asc' } },
+      },
+      orderBy: { order: 'asc' },
+    }),
+    prisma.store.findUnique({
+      where: { id: storeId },
+      select: {
+        name: true, tagline: true, logo: true,
+        address: true, metroInfo: true,
+        lineAccount: true, igAccount: true,
+        introduction: true, bookingNotes: true,
+      },
+    }),
+    prisma.portfolio.findMany({
+      where: { storeId, isVisible: true },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true, name: true, price: true, imageData: true,
+        categoryId: true, order: true,
+      },
+    }),
+    prisma.storeInfoBlock.findMany({
+      where: { storeId },
+      orderBy: { order: 'asc' },
+    }),
+  ])
 
-  const store = await prisma.store.findUnique({
-    where: { id: storeId },
-    select: { name: true, logo: true, address: true, bookingNotes: true },
-  })
-
-  return NextResponse.json({ categories, store })
+  return NextResponse.json({ categories, store, portfolio, storeInfoBlocks })
 }
