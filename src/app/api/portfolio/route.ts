@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   const order = (maxOrderItem?.order ?? -1) + 1
 
   const item = await prisma.portfolio.create({
-    data: { storeId, name, price: price || null, imageData, categoryId: categoryId || null, order },
+    data: { storeId, name, price: price != null ? Number(price) : null, imageData, categoryId: categoryId || null, order },
     include: { category: { select: { id: true, name: true } } },
   })
   return NextResponse.json(item)

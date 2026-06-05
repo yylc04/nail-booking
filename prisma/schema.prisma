@@ -199,7 +199,7 @@ model Portfolio {
   id         String   @id @default(cuid())
   storeId    String
   name       String
-  price      String?
+  price      Int?
   imageData  String   @db.Text
   categoryId String?
   isVisible  Boolean  @default(true)

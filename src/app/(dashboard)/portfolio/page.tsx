@@ -14,7 +14,7 @@ interface Category { id: string; name: string }
 interface PortfolioItem {
   id: string
   name: string
-  price: string | null
+  price: number | null
   imageData: string
   categoryId: string | null
   isVisible: boolean
@@ -68,7 +68,7 @@ export default function PortfolioPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: newName.trim(),
-        price: newPrice.trim() || null,
+        price: newPrice ? Number(newPrice) : null,
         imageData: newImage,
         categoryId: newCategoryId || null,
       }),
@@ -201,7 +201,7 @@ export default function PortfolioPage() {
               <div className="p-2">
                 <p className="text-xs font-semibold truncate">{item.name}</p>
                 <div className="flex items-center justify-between mt-0.5">
-                  {item.price && <p className="text-xs text-primary font-medium">{item.price}</p>}
+                  {item.price != null && <p className="text-xs text-primary font-medium">NT$ {item.price.toLocaleString()}</p>}
                   {item.category && <span className="text-[10px] bg-accent text-muted-foreground rounded px-1.5 py-0.5">{item.category.name}</span>}
                 </div>
               </div>
@@ -250,7 +250,7 @@ export default function PortfolioPage() {
 
             <div className="space-y-2">
               <Label>價格（選填）</Label>
-              <Input value={newPrice} onChange={e => setNewPrice(e.target.value)} placeholder="例：NT$1,200 起" />
+              <Input type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} placeholder="例：1800" min={0} />
             </div>
 
             <div className="space-y-2">

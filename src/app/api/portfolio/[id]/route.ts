@@ -16,7 +16,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id, storeId },
     data: {
       ...(name !== undefined ? { name } : {}),
-      ...(price !== undefined ? { price } : {}),
+      ...(price !== undefined ? { price: price != null ? Number(price) : null } : {}),
       ...(imageData !== undefined ? { imageData } : {}),
       ...(categoryId !== undefined ? { categoryId: categoryId || null } : {}),
       ...(isVisible !== undefined ? { isVisible } : {}),

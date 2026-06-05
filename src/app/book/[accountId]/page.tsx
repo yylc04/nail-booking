@@ -31,7 +31,7 @@ interface StoreInfo {
   lineAccount?: string; igAccount?: string; introduction?: string; bookingNotes?: string
 }
 interface PortfolioItem {
-  id: string; name: string; price: string | null; imageData: string; categoryId: string | null
+  id: string; name: string; price: number | null; imageData: string; categoryId: string | null
 }
 interface InfoBlock { id: string; title: string; content: string }
 
@@ -94,6 +94,18 @@ export default function BookPage() {
       if (idx >= 0) return prev.map((i, n) => n === idx ? { ...i, qty: i.qty + 1 } : i)
       return [...prev, { ...svc, qty: 1 }]
     })
+  }
+
+  function addPortfolioToCart(item: PortfolioItem) {
+    const catSvcs = categories.find(c => c.id === item.categoryId)?.services
+    if (!catSvcs || catSvcs.length === 0) {
+      toast('請至「服務項目」選擇服務')
+      return
+    }
+    const svc = catSvcs[0]
+    const price = item.price ?? svc.price
+    addToCart({ id: svc.id, name: item.name, price, duration: svc.duration })
+    toast.success(`已加入：${item.name}`)
   }
 
   function removeFromCart(id: string) {
@@ -613,14 +625,7 @@ export default function BookPage() {
                         <button
                           onClick={e => {
                             e.stopPropagation()
-                            // Find services in same category
-                            const catSvcs = categories.find(c => c.id === item.categoryId)?.services
-                            if (catSvcs && catSvcs.length > 0) {
-                              addToCart(catSvcs[0])
-                              toast.success(`已加入：${catSvcs[0].name}`)
-                            } else {
-                              toast('請至「服務項目」選擇服務')
-                            }
+                            addPortfolioToCart(item)
                           }}
                           className="absolute top-2 right-2 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100"
                         >
@@ -629,7 +634,7 @@ export default function BookPage() {
                       </div>
                       <div className="p-2">
                         <p className="text-xs font-semibold truncate">{item.name}</p>
-                        {item.price && <p className="text-xs text-primary font-medium mt-0.5">{item.price}</p>}
+                        {item.price != null && <p className="text-xs text-primary font-medium mt-0.5">NT$ {item.price.toLocaleString()}</p>}
                       </div>
                     </div>
                   )
@@ -737,18 +742,12 @@ export default function BookPage() {
               <div className="p-4 space-y-3">
                 <div>
                   <h3 className="font-semibold">{lightboxItem.name}</h3>
-                  {lightboxItem.price && <p className="text-sm text-primary font-medium mt-0.5">{lightboxItem.price}</p>}
+                  {lightboxItem.price != null && <p className="text-sm text-primary font-medium mt-0.5">NT$ {lightboxItem.price.toLocaleString()}</p>}
                 </div>
                 <Button
                   className="w-full min-h-[48px]"
                   onClick={() => {
-                    const catSvcs = categories.find(c => c.id === lightboxItem.categoryId)?.services
-                    if (catSvcs && catSvcs.length > 0) {
-                      addToCart(catSvcs[0])
-                      toast.success(`已加入：${catSvcs[0].name}`)
-                    } else {
-                      toast('請至「服務項目」選擇服務')
-                    }
+                    addPortfolioToCart(lightboxItem)
                     setLightboxItem(null)
                   }}
                 >
