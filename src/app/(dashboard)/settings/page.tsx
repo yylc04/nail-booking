@@ -78,6 +78,7 @@ export default function SettingsPage() {
   // Quote mode
   const [quoteMode, setQuoteMode] = useState<'QUOTE_ONLY' | 'QUOTE_HOLD'>('QUOTE_ONLY')
   const [quoteHoldHours, setQuoteHoldHours] = useState('24')
+  const [quotePayHours, setQuotePayHours] = useState('24')
 
   const [globalSaving, setGlobalSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -103,6 +104,7 @@ export default function SettingsPage() {
       setBankAccounts(data?.bankAccounts || [])
       setQuoteMode(data?.quoteMode || 'QUOTE_ONLY')
       setQuoteHoldHours(data?.quoteHoldHours ? String(data.quoteHoldHours) : '24')
+      setQuotePayHours(data?.quotePayHours ? String(data.quotePayHours) : '24')
       setTemplates(data?.businessSlots?.map((s: { dayOfWeek: number; time: string }) => ({ dayOfWeek: s.dayOfWeek, time: s.time })) || [])
       setInfoBlocks(data?.storeInfoBlocks?.map((b: { title: string; content: string }) => ({ title: b.title, content: b.content })) || [])
       setLoading(false)
@@ -288,6 +290,7 @@ export default function SettingsPage() {
         storeInfoBlocks: infoBlocks,
         quoteMode,
         quoteHoldHours,
+        quotePayHours,
       }),
     })
     setGlobalSaving(false)
@@ -665,20 +668,33 @@ export default function SettingsPage() {
             </button>
           </div>
           {quoteMode === 'QUOTE_HOLD' && (
-            <div className="space-y-2 pt-1">
-              <Label className="text-xs">時段保留時間（小時）</Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  type="number"
-                  value={quoteHoldHours}
-                  onChange={e => setQuoteHoldHours(e.target.value)}
-                  min={1}
-                  max={168}
-                  className="w-28"
-                />
-                <span className="text-xs text-muted-foreground">小時（預設 24 小時）</span>
+            <div className="space-y-3 pt-1">
+              <div className="space-y-2">
+                <Label className="text-xs">詢價回覆期限（小時）</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    value={quoteHoldHours}
+                    onChange={e => setQuoteHoldHours(e.target.value)}
+                    min={1} max={168} className="w-28"
+                  />
+                  <span className="text-xs text-muted-foreground">小時（預設 24 小時）</span>
+                </div>
+                <p className="text-xs text-muted-foreground">店家需在此時間內回覆，逾時自動取消詢價並釋放時段</p>
               </div>
-              <p className="text-xs text-muted-foreground">店家回覆報價後，若客人超過此時間未確認則自動釋放時段</p>
+              <div className="space-y-2">
+                <Label className="text-xs">付款確認期限（小時）</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    value={quotePayHours}
+                    onChange={e => setQuotePayHours(e.target.value)}
+                    min={1} max={168} className="w-28"
+                  />
+                  <span className="text-xs text-muted-foreground">小時（預設 24 小時）</span>
+                </div>
+                <p className="text-xs text-muted-foreground">店家回覆後，客人需在此時間內確認預約，逾時自動取消並釋放時段</p>
+              </div>
             </div>
           )}
         </CardContent>

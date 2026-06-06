@@ -5,7 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import {
   Sparkles, ShoppingCart, ChevronLeft, ChevronRight, Check, X,
   Wand2, Banknote, Plus, MapPin, MessageCircle, AtSign,
-  ExternalLink, ImageIcon, Grid3X3, Camera,
+  ExternalLink, ImageIcon, Grid3X3, Camera, User,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -509,21 +509,28 @@ export default function BookPage() {
       {/* ── Store header ── */}
       <div className="bg-white border-b border-border/40">
         <div className="max-w-2xl mx-auto px-4 pt-6 pb-4">
-          {/* Logo + name + tagline */}
-          <div className="flex items-center gap-4 mb-4">
-            {store?.logo ? (
-              <div className="w-[72px] h-[72px] rounded-full overflow-hidden border-2 border-primary/20 shrink-0 shadow-sm">
-                <Image src={store.logo} alt="Logo" width={72} height={72} className="w-full h-full object-cover" unoptimized />
+          {/* Logo + name + tagline + 會員專區 */}
+          <div className="flex items-start justify-between gap-2 mb-4">
+            <div className="flex items-center gap-4">
+              {store?.logo ? (
+                <div className="w-[72px] h-[72px] rounded-full overflow-hidden border-2 border-primary/20 shrink-0 shadow-sm">
+                  <Image src={store.logo} alt="Logo" width={72} height={72} className="w-full h-full object-cover" unoptimized />
+                </div>
+              ) : (
+                <div className="w-[72px] h-[72px] rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-8 h-8 text-primary" />
+                </div>
+              )}
+              <div>
+                <h1 className="text-xl font-bold text-foreground">{store?.name || 'Blooming♡'}</h1>
+                {store?.tagline && <p className="text-sm text-muted-foreground mt-0.5">{store.tagline}</p>}
               </div>
-            ) : (
-              <div className="w-[72px] h-[72px] rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Sparkles className="w-8 h-8 text-primary" />
-              </div>
-            )}
-            <div>
-              <h1 className="text-xl font-bold text-foreground">{store?.name || 'Blooming♡'}</h1>
-              {store?.tagline && <p className="text-sm text-muted-foreground mt-0.5">{store.tagline}</p>}
             </div>
+            <Link href={`/book/${accountId}/login`}>
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0 mt-1 min-h-[36px] text-xs border-primary/30 text-primary hover:bg-primary/5">
+                <User className="w-3.5 h-3.5" /> 會員專區
+              </Button>
+            </Link>
           </div>
 
           {/* Introduction */}

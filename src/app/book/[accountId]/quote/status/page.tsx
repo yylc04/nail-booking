@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ChevronLeft, Search, Clock, CheckCircle2, ImageIcon, CalendarCheck, XCircle, AlertCircle } from 'lucide-react'
+import { ChevronLeft, Search, Clock, CheckCircle2, ImageIcon, CalendarCheck, XCircle, AlertCircle, CalendarClock } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import Image from 'next/image'
-import { format, differenceInSeconds } from 'date-fns'
+import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
 interface BankAccount { bankName: string; accountNumber: string; accountName: string }
@@ -36,26 +36,6 @@ interface QuoteRecord {
   replyNote: string | null
   repliedAt: string | null
   createdAt: string
-}
-
-function Countdown({ holdUntil }: { holdUntil: string }) {
-  const [secs, setSecs] = useState(() => differenceInSeconds(new Date(holdUntil), new Date()))
-  const ref = useRef<ReturnType<typeof setInterval> | null>(null)
-  useEffect(() => {
-    ref.current = setInterval(() => {
-      setSecs(differenceInSeconds(new Date(holdUntil), new Date()))
-    }, 1000)
-    return () => { if (ref.current) clearInterval(ref.current) }
-  }, [holdUntil])
-  if (secs <= 0) return <span className="text-red-600 font-medium">已過期</span>
-  const h = Math.floor(secs / 3600)
-  const m = Math.floor((secs % 3600) / 60)
-  const s = secs % 60
-  return (
-    <span className="font-mono text-amber-700">
-      {h > 0 ? `${h}h ` : ''}{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
-    </span>
-  )
 }
 
 export default function QuoteStatusPage() {
@@ -229,9 +209,12 @@ export default function QuoteStatusPage() {
                     {q.quoteMode === 'QUOTE_HOLD' && q.holdDate && q.holdTime && q.status !== 'CONFIRMED' && q.status !== 'REJECTED' && (
                       <div className="px-4 pt-3 pb-1">
                         <div className={`rounded-xl p-2.5 text-xs ${q.status === 'EXPIRED' ? 'bg-red-50 border border-red-100 text-red-700' : 'bg-blue-50 border border-blue-100 text-blue-700'}`}>
-                          <p className="font-semibold">卡位時段：{format(new Date(q.holdDate), 'yyyy/MM/dd', { locale: zhTW })} {q.holdTime}</p>
-                          {q.holdUntil && q.status !== 'EXPIRED' && (
-                            <p className="mt-0.5">保留截止：<Countdown holdUntil={q.holdUntil} /></p>
+                          <p className="font-semibold flex items-center gap-1"><CalendarClock className="w-3 h-3" /> 卡位時段：{format(new Date(q.holdDate), 'M月d日', { locale: zhTW })} {q.holdTime}</p>
+                          {q.holdUntil && q.status === 'PENDING' && (
+                            <p className="mt-0.5 text-amber-700">店家回覆截止：{format(new Date(q.holdUntil), 'M月d日 HH:mm', { locale: zhTW })}</p>
+                          )}
+                          {q.holdUntil && q.status === 'REPLIED' && (
+                            <p className="mt-0.5 text-amber-700">付款截止：{format(new Date(q.holdUntil), 'M月d日 HH:mm', { locale: zhTW })}</p>
                           )}
                           {q.status === 'EXPIRED' && <p className="mt-0.5">保留時間已過，請重新詢價</p>}
                         </div>

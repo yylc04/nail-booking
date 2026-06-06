@@ -50,9 +50,13 @@ export async function GET(req: NextRequest) {
   if (!phone) {
     const store = await prisma.store.findUnique({
       where: { id: storeId },
-      select: { quoteMode: true, quoteHoldHours: true },
+      select: { quoteMode: true, quoteHoldHours: true, quotePayHours: true },
     })
-    return NextResponse.json({ quoteMode: store?.quoteMode ?? 'QUOTE_ONLY', quoteHoldHours: store?.quoteHoldHours ?? 24 })
+    return NextResponse.json({
+      quoteMode: store?.quoteMode ?? 'QUOTE_ONLY',
+      quoteHoldHours: store?.quoteHoldHours ?? 24,
+      quotePayHours: store?.quotePayHours ?? 24,
+    })
   }
 
   // Lazy expiry check + return quotes
@@ -115,13 +119,10 @@ export async function POST(req: NextRequest) {
     if (!holdDate || !holdTime) return NextResponse.json({ error: '傳圖卡位模式需選擇日期和時段' }, { status: 400 })
 
     computedHoldDate = new Date(holdDate)
-    const holdHours = store?.quoteHoldHours ?? 24
+    const replyHours = store?.quoteHoldHours || 24
 
-    // Parse holdDate + holdTime into a DateTime and add holdHours
-    const [hh, mm] = holdTime.split(':').map(Number)
-    holdUntil = new Date(holdDate)
-    holdUntil.setHours(hh, mm, 0, 0)
-    holdUntil = new Date(holdUntil.getTime() + holdHours * 60 * 60 * 1000)
+    // holdUntil = now + replyHours (store must reply within this window)
+    holdUntil = new Date(Date.now() + replyHours * 60 * 60 * 1000)
 
     // Check that the slot exists and isn't already taken
     const now = new Date()

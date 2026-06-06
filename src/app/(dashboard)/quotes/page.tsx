@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { MessageSquareMore, Clock, CheckCircle2, Search, X, ZoomIn, CalendarCheck, XCircle, AlertCircle, Ban } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import {
+  MessageSquareMore, Clock, CheckCircle2, Search, X, ZoomIn,
+  CalendarCheck, XCircle, AlertCircle, Ban, Trash2,
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { format, differenceInSeconds } from 'date-fns'
+import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,18 +40,11 @@ interface QuoteItem {
 
 type Filter = 'ALL' | 'PENDING' | 'REPLIED'
 
-function Countdown({ holdUntil }: { holdUntil: string }) {
-  const [secs, setSecs] = useState(() => differenceInSeconds(new Date(holdUntil), new Date()))
-  const ref = useRef<ReturnType<typeof setInterval> | null>(null)
-  useEffect(() => {
-    ref.current = setInterval(() => setSecs(differenceInSeconds(new Date(holdUntil), new Date())), 1000)
-    return () => { if (ref.current) clearInterval(ref.current) }
-  }, [holdUntil])
-  if (secs <= 0) return <span className="text-red-600">已過期</span>
-  const h = Math.floor(secs / 3600)
-  const m = Math.floor((secs % 3600) / 60)
-  const s = secs % 60
-  return <span className="font-mono">{h > 0 ? `${h}h ` : ''}{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}</span>
+function deadlineLabel(q: QuoteItem): string | null {
+  if (!q.holdUntil || q.quoteMode !== 'QUOTE_HOLD') return null
+  if (q.status !== 'PENDING' && q.status !== 'REPLIED') return null
+  const dt = format(new Date(q.holdUntil), 'M月d日 HH:mm', { locale: zhTW })
+  return q.status === 'PENDING' ? `回覆截止：${dt}` : `付款截止：${dt}`
 }
 
 export default function QuotesPage() {
@@ -60,6 +56,8 @@ export default function QuotesPage() {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const [rejectId, setRejectId] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Reply form
   const [replyPrice, setReplyPrice] = useState('')
@@ -117,6 +115,18 @@ export default function QuotesPage() {
     if (!res.ok) { toast.error('操作失敗'); return }
     toast.success('已拒絕，時段已釋放')
     setRejectId(null)
+    setSelected(null)
+    loadQuotes(filter)
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return
+    setDeleting(true)
+    const res = await fetch(`/api/quotes/${deleteId}`, { method: 'DELETE' })
+    setDeleting(false)
+    if (!res.ok) { toast.error('刪除失敗'); return }
+    toast.success('已刪除')
+    setDeleteId(null)
     setSelected(null)
     loadQuotes(filter)
   }
@@ -186,54 +196,58 @@ export default function QuotesPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(q => (
-            <button
-              key={q.id}
-              onClick={() => openDetail(q)}
-              className="w-full text-left bg-white rounded-2xl border border-border/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all p-4"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold">{q.customerName}</span>
-                    <span className="text-xs text-muted-foreground">{q.customerPhone}</span>
-                    <span className="text-xs font-mono text-muted-foreground/70">{q.quoteNo}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {format(new Date(q.createdAt), 'yyyy/MM/dd HH:mm', { locale: zhTW })}
-                  </p>
-                  {/* QUOTE_HOLD info */}
-                  {q.quoteMode === 'QUOTE_HOLD' && q.holdDate && q.holdTime && (
-                    <p className="text-xs text-blue-700 mt-1 flex items-center gap-1">
-                      <CalendarCheck className="w-3 h-3" />
-                      {format(new Date(q.holdDate), 'yyyy/MM/dd', { locale: zhTW })} {q.holdTime}
-                      {q.holdUntil && (q.status === 'PENDING' || q.status === 'REPLIED') && (
-                        <span className="text-amber-600 ml-1">（剩 <Countdown holdUntil={q.holdUntil} />）</span>
-                      )}
-                    </p>
-                  )}
-                  {q.note && (
-                    <p className="text-xs text-muted-foreground mt-1 truncate">{q.note}</p>
-                  )}
-                </div>
-                <div className="shrink-0 flex flex-col items-end gap-2">
-                  <div className="flex flex-col items-end gap-1">
-                    {statusBadge(q)}
-                    {q.quoteMode === 'QUOTE_HOLD' && (
-                      <Badge variant="outline" className="text-[10px] text-blue-700 border-blue-300 bg-blue-50">已卡位</Badge>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    {q.images.slice(0, 3).map((img, i) => (
-                      <div key={i} className="w-8 h-8 rounded-lg overflow-hidden border border-border/40">
-                        <Image src={img} alt="" width={32} height={32} className="w-full h-full object-cover" unoptimized />
+          {filtered.map(q => {
+            const dl = deadlineLabel(q)
+            return (
+              <div key={q.id} className="relative bg-white rounded-2xl border border-border/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+                <button className="w-full text-left p-4" onClick={() => openDetail(q)}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold">{q.customerName}</span>
+                        <span className="text-xs text-muted-foreground">{q.customerPhone}</span>
+                        <span className="text-xs font-mono text-muted-foreground/70">{q.quoteNo}</span>
                       </div>
-                    ))}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(q.createdAt), 'yyyy/MM/dd HH:mm', { locale: zhTW })}
+                      </p>
+                      {q.quoteMode === 'QUOTE_HOLD' && q.holdDate && q.holdTime && (
+                        <p className="text-xs text-blue-700 mt-1 flex items-center gap-1">
+                          <CalendarCheck className="w-3 h-3" />
+                          {format(new Date(q.holdDate), 'yyyy/MM/dd', { locale: zhTW })} {q.holdTime}
+                          {dl && <span className="text-amber-600 ml-1">（{dl}）</span>}
+                        </p>
+                      )}
+                      {q.note && <p className="text-xs text-muted-foreground mt-1 truncate">{q.note}</p>}
+                    </div>
+                    <div className="shrink-0 flex flex-col items-end gap-2">
+                      <div className="flex flex-col items-end gap-1">
+                        {statusBadge(q)}
+                        {q.quoteMode === 'QUOTE_HOLD' && (
+                          <Badge variant="outline" className="text-[10px] text-blue-700 border-blue-300 bg-blue-50">已卡位</Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        {q.images.slice(0, 3).map((img, i) => (
+                          <div key={i} className="w-8 h-8 rounded-lg overflow-hidden border border-border/40">
+                            <Image src={img} alt="" width={32} height={32} className="w-full h-full object-cover" unoptimized />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </button>
+                {/* Delete button */}
+                <button
+                  onClick={e => { e.stopPropagation(); setDeleteId(q.id) }}
+                  className="absolute top-3 right-3 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"
+                  title="刪除詢價"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
-            </button>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -252,23 +266,16 @@ export default function QuotesPage() {
 
           {selected && (
             <div className="space-y-4">
-              {/* Customer info */}
               <div className="bg-accent/30 rounded-xl p-3 grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <p className="text-xs text-muted-foreground">姓名</p>
-                  <p className="font-medium">{selected.customerName}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">電話</p>
-                  <p className="font-medium">{selected.customerPhone}</p>
-                </div>
+                <div><p className="text-xs text-muted-foreground">姓名</p><p className="font-medium">{selected.customerName}</p></div>
+                <div><p className="text-xs text-muted-foreground">電話</p><p className="font-medium">{selected.customerPhone}</p></div>
                 <div className="col-span-2">
                   <p className="text-xs text-muted-foreground">送出時間</p>
                   <p className="font-medium">{format(new Date(selected.createdAt), 'yyyy/MM/dd HH:mm', { locale: zhTW })}</p>
                 </div>
               </div>
 
-              {/* QUOTE_HOLD hold info */}
+              {/* QUOTE_HOLD info */}
               {selected.quoteMode === 'QUOTE_HOLD' && selected.holdDate && selected.holdTime && (
                 <div className={`rounded-xl p-3 text-sm space-y-1 ${selected.status === 'EXPIRED' ? 'bg-red-50 border border-red-200/60' : 'bg-blue-50 border border-blue-200/60'}`}>
                   <p className={`text-xs font-semibold ${selected.status === 'EXPIRED' ? 'text-red-700' : 'text-blue-800'}`}>卡位資訊</p>
@@ -276,7 +283,10 @@ export default function QuotesPage() {
                     {format(new Date(selected.holdDate), 'yyyy/MM/dd（EEEE）', { locale: zhTW })} {selected.holdTime}
                   </p>
                   {selected.holdUntil && (selected.status === 'PENDING' || selected.status === 'REPLIED') && (
-                    <p className="text-xs text-amber-700">保留截止：<Countdown holdUntil={selected.holdUntil} /></p>
+                    <p className="text-xs text-amber-700">
+                      {selected.status === 'PENDING' ? '店家回覆截止' : '付款截止'}：
+                      {format(new Date(selected.holdUntil), 'M月d日（EEEE）HH:mm', { locale: zhTW })}
+                    </p>
                   )}
                   {selected.status === 'EXPIRED' && (
                     <p className="text-xs text-red-600">已超過保留時間，時段自動釋放</p>
@@ -289,11 +299,7 @@ export default function QuotesPage() {
                 <p className="text-xs font-semibold text-muted-foreground">客人上傳圖片</p>
                 <div className="grid grid-cols-3 gap-2">
                   {selected.images.map((img, i) => (
-                    <div
-                      key={i}
-                      className="aspect-square rounded-xl overflow-hidden border border-border/40 relative group cursor-pointer"
-                      onClick={() => setLightboxSrc(img)}
-                    >
+                    <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border/40 relative group cursor-pointer" onClick={() => setLightboxSrc(img)}>
                       <Image src={img} alt="" fill className="object-cover" unoptimized />
                       <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <ZoomIn className="w-5 h-5 text-white" />
@@ -303,7 +309,6 @@ export default function QuotesPage() {
                 </div>
               </div>
 
-              {/* Customer note */}
               {selected.note && (
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-muted-foreground">客人說明</p>
@@ -311,7 +316,6 @@ export default function QuotesPage() {
                 </div>
               )}
 
-              {/* Existing reply */}
               {(selected.status === 'REPLIED' || selected.status === 'CONFIRMED') && (
                 <div className="rounded-xl bg-green-50 border border-green-200/60 p-3 space-y-1">
                   <p className="text-xs font-semibold text-green-800">已回覆</p>
@@ -325,43 +329,26 @@ export default function QuotesPage() {
                 </div>
               )}
 
-              {/* Actions: reject for QUOTE_HOLD PENDING */}
+              {/* Reject for QUOTE_HOLD PENDING/REPLIED */}
               {selected.quoteMode === 'QUOTE_HOLD' && (selected.status === 'PENDING' || selected.status === 'REPLIED') && (
                 <div className="pt-1 border-t border-border/40">
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 text-destructive border-destructive/30 hover:bg-destructive/5"
-                    onClick={() => setRejectId(selected.id)}
-                  >
+                  <Button variant="outline" className="w-full gap-2 text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => setRejectId(selected.id)}>
                     <Ban className="w-4 h-4" /> 拒絕此詢價（釋放時段）
                   </Button>
                 </div>
               )}
 
-              {/* Reply form (not for CONFIRMED/REJECTED/EXPIRED) */}
+              {/* Reply form */}
               {selected.status !== 'CONFIRMED' && selected.status !== 'REJECTED' && selected.status !== 'EXPIRED' && (
                 <div className="space-y-3 pt-1 border-t border-border/40">
-                  <p className="text-sm font-semibold">
-                    {selected.status === 'REPLIED' ? '修改回覆' : '送出回覆'}
-                  </p>
+                  <p className="text-sm font-semibold">{selected.status === 'REPLIED' ? '修改回覆' : '送出回覆'}</p>
                   <div className="space-y-2">
                     <Label className="text-xs">報價金額（NT$）</Label>
-                    <Input
-                      type="number"
-                      value={replyPrice}
-                      onChange={e => setReplyPrice(e.target.value)}
-                      placeholder="例：1800"
-                      min={0}
-                    />
+                    <Input type="number" value={replyPrice} onChange={e => setReplyPrice(e.target.value)} placeholder="例：1800" min={0} />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">回覆說明</Label>
-                    <Textarea
-                      value={replyNote}
-                      onChange={e => setReplyNote(e.target.value)}
-                      placeholder="例如：此款需加收手繪費用 NT$300，整體約 NT$2,100"
-                      rows={3}
-                    />
+                    <Textarea value={replyNote} onChange={e => setReplyNote(e.target.value)} placeholder="例如：此款需加收手繪費用 NT$300，整體約 NT$2,100" rows={3} />
                   </div>
                   <Button className="w-full min-h-[44px]" onClick={handleReply} disabled={replying}>
                     {replying ? '送出中...' : '送出回覆'}
@@ -389,18 +376,28 @@ export default function QuotesPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>確定拒絕此詢價？</AlertDialogTitle>
-            <AlertDialogDescription>
-              拒絕後，卡位的時段將立即釋放，客人將無法再確認預約。此操作無法復原。
-            </AlertDialogDescription>
+            <AlertDialogDescription>拒絕後，卡位的時段將立即釋放，客人將無法再確認預約。此操作無法復原。</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleReject}
-              disabled={rejecting}
-              className="bg-destructive hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleReject} disabled={rejecting} className="bg-destructive hover:bg-destructive/90">
               {rejecting ? '處理中...' : '確定拒絕'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete confirm */}
+      <AlertDialog open={!!deleteId} onOpenChange={o => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定要刪除此詢價？</AlertDialogTitle>
+            <AlertDialogDescription>刪除後卡位時段將自動釋放，詢價記錄將永久移除。此操作無法復原。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive hover:bg-destructive/90">
+              {deleting ? '刪除中...' : '確定刪除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
