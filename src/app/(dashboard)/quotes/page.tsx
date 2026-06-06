@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   MessageSquareMore, Clock, CheckCircle2, Search, ZoomIn,
-  CalendarCheck, XCircle, AlertCircle, Ban, Trash2,
+  CalendarCheck, XCircle, AlertCircle, Ban, Trash2, Settings2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -18,12 +18,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Image from 'next/image'
 
 interface QuoteReply {
   imageIndex: number
   price: number
   note?: string
+  duration?: number
 }
 
 interface QuoteItem {
@@ -66,7 +68,14 @@ export default function QuotesPage() {
 
   // Per-image reply fields: one entry per image
   const [replyFields, setReplyFields] = useState<{ price: string; note: string }[]>([])
+  const [replyDuration, setReplyDuration] = useState('60')
   const [replying, setReplying] = useState(false)
+
+  // Quote settings
+  const [defaultDuration, setDefaultDuration] = useState(60)
+  const [defaultDurationInput, setDefaultDurationInput] = useState('60')
+  const [savingDefault, setSavingDefault] = useState(false)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
 
   async function loadQuotes(f: Filter) {
     setLoading(true)
@@ -79,6 +88,34 @@ export default function QuotesPage() {
 
   useEffect(() => { loadQuotes(filter) }, [filter])
 
+  useEffect(() => {
+    if (settingsLoaded) return
+    fetch('/api/settings').then(r => r.json()).then(data => {
+      const dur = data?.quoteDefaultDuration ?? 60
+      setDefaultDuration(dur)
+      setDefaultDurationInput(String(dur))
+      setSettingsLoaded(true)
+    })
+  }, [settingsLoaded])
+
+  async function saveDefaultDuration() {
+    const val = Math.max(1, Number(defaultDurationInput))
+    if (isNaN(val)) return toast.error('請輸入有效分鐘數')
+    setSavingDefault(true)
+    const res = await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quoteDefaultDuration: val }),
+    })
+    setSavingDefault(false)
+    if (res.ok) {
+      setDefaultDuration(val)
+      toast.success('已儲存')
+    } else {
+      toast.error('儲存失敗')
+    }
+  }
+
   function openDetail(q: QuoteItem) {
     setSelected(q)
     const fields = q.images.map((_, i) => {
@@ -86,6 +123,9 @@ export default function QuotesPage() {
       return { price: existing?.price != null ? String(existing.price) : '', note: existing?.note || '' }
     })
     setReplyFields(fields)
+    // Set duration: use existing reply's duration if available, otherwise use default
+    const existingDuration = q.quoteReplies?.[0]?.duration
+    setReplyDuration(String(existingDuration ?? defaultDuration))
   }
 
   function updateField(i: number, key: 'price' | 'note', val: string) {
@@ -94,8 +134,9 @@ export default function QuotesPage() {
 
   async function handleReply() {
     if (!selected) return
+    const dur = Math.max(1, Number(replyDuration))
     const replies: QuoteReply[] = replyFields
-      .map((f, i) => ({ imageIndex: i, price: Number(f.price), note: f.note.trim() || undefined }))
+      .map((f, i) => ({ imageIndex: i, price: Number(f.price), note: f.note.trim() || undefined, duration: isNaN(dur) ? defaultDuration : dur }))
       .filter((_, i) => replyFields[i].price !== '')
     if (replies.length === 0) {
       toast.error('請至少填寫一張圖片的報價金額')
@@ -171,6 +212,33 @@ export default function QuotesPage() {
           </p>
         </div>
       </div>
+
+      {/* Quote settings */}
+      <Card className="border-border/50 shadow-sm mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Settings2 className="w-4 h-4 text-primary" /> 詢價設定
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="space-y-1.5 flex-1 min-w-[160px]">
+              <Label className="text-xs">傳圖報價預設施作時間（分鐘）</Label>
+              <Input
+                type="number"
+                value={defaultDurationInput}
+                onChange={e => setDefaultDurationInput(e.target.value)}
+                min={1}
+                className="w-full sm:w-32"
+              />
+            </div>
+            <Button onClick={saveDefaultDuration} disabled={savingDefault} size="sm" className="min-h-[40px]">
+              {savingDefault ? '儲存中...' : '儲存'}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">回覆詢價時的預設施作時間，可針對每筆詢價個別修改</p>
+        </CardContent>
+      </Card>
 
       {/* Filter tabs + search */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -327,6 +395,7 @@ export default function QuotesPage() {
                             {reply ? (
                               <>
                                 <p className="text-base font-bold text-green-700">NT$ {reply.price.toLocaleString()}</p>
+                                {reply.duration && <p className="text-xs text-muted-foreground mt-0.5">{reply.duration} 分鐘</p>}
                                 {reply.note && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{reply.note}</p>}
                               </>
                             ) : (
@@ -373,6 +442,24 @@ export default function QuotesPage() {
                 <div className="space-y-4 pt-1 border-t border-border/40">
                   <p className="text-sm font-semibold">{selected.status === 'REPLIED' ? '修改各款報價' : '填寫各款報價'}</p>
                   <p className="text-xs text-muted-foreground -mt-2">可只填部分圖片，未填金額的款式會顯示「此款不提供」</p>
+
+                  {/* Duration field */}
+                  <div className="space-y-1.5 bg-accent/20 rounded-xl p-3">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">施作時間（分鐘）</Label>
+                      {Number(replyDuration) !== defaultDuration && (
+                        <Badge className="text-[10px] bg-amber-100 text-amber-700 hover:bg-amber-100 px-1.5 py-0">已自訂</Badge>
+                      )}
+                    </div>
+                    <Input
+                      type="number"
+                      value={replyDuration}
+                      onChange={e => setReplyDuration(e.target.value)}
+                      min={1}
+                      className="w-28"
+                    />
+                    <p className="text-[11px] text-muted-foreground">預設 {defaultDuration} 分鐘</p>
+                  </div>
                   {selected.images.map((img, i) => (
                     <div key={i} className="space-y-2 bg-accent/20 rounded-xl p-3">
                       <div className="flex gap-3 items-start">

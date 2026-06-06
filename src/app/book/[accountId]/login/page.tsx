@@ -19,6 +19,11 @@ export default function CustomerLoginPage() {
   const [loading, setLoading] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
 
+  // Name update flow
+  const [needsName, setNeedsName] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [savingName, setSavingName] = useState(false)
+
   useEffect(() => {
     fetch('/api/book/me').then(r => {
       if (r.ok) router.replace(`/book/${accountId}/member`)
@@ -38,15 +43,73 @@ export default function CustomerLoginPage() {
     const data = await res.json()
     setLoading(false)
     if (res.ok) {
-      toast.success(`歡迎回來，${data.name}！`)
-      router.push(`/book/${accountId}/member`)
+      if (data.needsNameUpdate) {
+        setNeedsName(true)
+      } else {
+        toast.success(`歡迎回來，${data.name}！`)
+        router.push(`/book/${accountId}/member`)
+      }
     } else {
       toast.error(data.error || '查詢失敗')
     }
   }
 
+  async function handleSaveName(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newName.trim()) return toast.error('請輸入您的姓名')
+    setSavingName(true)
+    const res = await fetch('/api/book/me', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName.trim() }),
+    })
+    setSavingName(false)
+    if (res.ok) {
+      toast.success('歡迎！')
+      router.push(`/book/${accountId}/member`)
+    } else {
+      toast.error('儲存失敗，請重試')
+    }
+  }
+
   if (checkingSession) {
     return <div className="min-h-screen bg-[#FFF7FB] flex items-center justify-center text-muted-foreground text-sm">載入中...</div>
+  }
+
+  if (needsName) {
+    return (
+      <div className="min-h-screen bg-[#FFF7FB] flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-primary/10 mb-4">
+              <User className="w-8 h-8 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold">請輸入您的姓名</h1>
+            <p className="text-sm text-muted-foreground mt-1">讓店家知道怎麼稱呼您</p>
+          </div>
+          <Card className="border-border/50 shadow-lg shadow-primary/5">
+            <CardContent className="pt-6">
+              <form onSubmit={handleSaveName} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">您的姓名</Label>
+                  <Input
+                    id="name"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    placeholder="例：小美"
+                    autoFocus
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full min-h-[44px]" disabled={savingName}>
+                  {savingName ? '儲存中...' : '確認'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   return (

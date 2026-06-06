@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   CalendarDays, MessageSquareMore, LogOut, ChevronLeft,
-  CalendarCheck, Clock, CheckCircle2, XCircle, AlertCircle, Sparkles,
+  CalendarCheck, Clock, CheckCircle2, XCircle, AlertCircle, Sparkles, Pencil, Check, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -30,6 +31,7 @@ interface QuoteReply {
   imageIndex: number
   price: number
   note?: string
+  duration?: number
 }
 
 interface QuoteRecord {
@@ -67,6 +69,9 @@ export default function MemberPage() {
 
   const [tab, setTab] = useState<Tab>('appointments')
   const [customerName, setCustomerName] = useState('')
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  const [savingName, setSavingName] = useState(false)
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [quotes, setQuotes] = useState<QuoteRecord[]>([])
   const [apptLoading, setApptLoading] = useState(true)
@@ -104,6 +109,29 @@ export default function MemberPage() {
     if (tab === 'quotes') loadQuotes()
   }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function handleSaveName() {
+    if (!nameInput.trim()) return toast.error('請輸入姓名')
+    setSavingName(true)
+    const res = await fetch('/api/book/me', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nameInput.trim() }),
+    })
+    setSavingName(false)
+    if (res.ok) {
+      setCustomerName(nameInput.trim())
+      setEditingName(false)
+      toast.success('姓名已更新')
+    } else {
+      toast.error('更新失敗')
+    }
+  }
+
+  function startEditName() {
+    setNameInput(customerName)
+    setEditingName(true)
+  }
+
   async function handleCancelAppt() {
     if (!cancelId) return
     const res = await fetch(`/api/book/cancel/${cancelId}`, { method: 'POST' })
@@ -124,6 +152,7 @@ export default function MemberPage() {
       customPrice: String(reply.price),
       quoteId: q.id,
     })
+    if (reply.duration) urlParams.set('customDuration', String(reply.duration))
     if (q.quoteMode === 'QUOTE_HOLD' && q.holdDate && q.holdTime) {
       urlParams.set('quoteHoldDate', format(new Date(q.holdDate), 'yyyy-MM-dd'))
       urlParams.set('quoteHoldTime', q.holdTime)
@@ -173,7 +202,34 @@ export default function MemberPage() {
             </div>
             <div>
               <h1 className="text-sm font-bold">會員專區</h1>
-              {customerName && <p className="text-xs text-muted-foreground">{customerName}</p>}
+              {customerName && (
+                <div className="flex items-center gap-1">
+                  {editingName ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={nameInput}
+                        onChange={e => setNameInput(e.target.value)}
+                        className="h-6 text-xs w-28 px-1.5"
+                        onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+                        autoFocus
+                      />
+                      <button onClick={handleSaveName} disabled={savingName} className="text-primary hover:text-primary/80 transition-colors">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => setEditingName(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground">{customerName}</p>
+                      <button onClick={startEditName} className="text-muted-foreground hover:text-primary transition-colors">
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1 text-muted-foreground min-h-[40px]">
@@ -346,6 +402,7 @@ export default function MemberPage() {
                                   {reply ? (
                                     <>
                                       <p className="text-base font-bold text-green-700">NT$ {reply.price.toLocaleString()}</p>
+                                      {reply.duration && <p className="text-xs text-muted-foreground mt-0.5">{reply.duration} 分鐘</p>}
                                       {reply.note && <p className="text-xs text-green-800 leading-relaxed mt-0.5">{reply.note}</p>}
                                     </>
                                   ) : (

@@ -64,10 +64,9 @@ export async function POST(req: NextRequest) {
       data: { name, phone, lineName, lineOrIg, storeId },
     })
   } else {
-    // Update lineName/lineOrIg if provided
     customer = await prisma.customer.update({
       where: { id: customer.id },
-      data: { lineName, lineOrIg },
+      data: { name, lineName, lineOrIg },
     })
   }
 

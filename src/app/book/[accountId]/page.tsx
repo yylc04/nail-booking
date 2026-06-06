@@ -79,6 +79,8 @@ export default function BookPage() {
   const [done, setDone] = useState(false)
   const [quoteId, setQuoteId] = useState<string | null>(null)
   const [quoteIsHold, setQuoteIsHold] = useState(false)
+  const [monthStatus, setMonthStatus] = useState<Record<string, boolean>>({})
+  const [memberInfo, setMemberInfo] = useState<{ name: string; phone: string } | null>(null)
 
   const totalDuration = cart.reduce((s, i) => s + i.duration * i.qty, 0)
   const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0)
@@ -93,9 +95,10 @@ export default function BookPage() {
       setPortfolio(data.portfolio || [])
       setStoreInfoBlocks(data.storeInfoBlocks || [])
 
-      // Handle quote flow URL params: ?customService=&customPrice=&quoteId=&quoteHoldDate=&quoteHoldTime=
+      // Handle quote flow URL params
       const customService = searchParams.get('customService')
       const customPrice = searchParams.get('customPrice')
+      const customDuration = searchParams.get('customDuration')
       const quoteIdParam = searchParams.get('quoteId')
       const quoteHoldDate = searchParams.get('quoteHoldDate')
       const quoteHoldTime = searchParams.get('quoteHoldTime')
@@ -103,11 +106,12 @@ export default function BookPage() {
         const price = parseInt(customPrice, 10)
         const firstSvc = cats.flatMap(c => c.services)[0]
         if (!isNaN(price)) {
+          const dur = customDuration ? parseInt(customDuration, 10) : (firstSvc?.duration || 60)
           setCart([{
             id: firstSvc?.id || '__quote__',
             name: customService,
             price,
-            duration: firstSvc?.duration || 60,
+            duration: isNaN(dur) ? 60 : dur,
             qty: 1,
           }])
           if (quoteHoldDate && quoteHoldTime) {
@@ -125,6 +129,7 @@ export default function BookPage() {
       const url = new URL(window.location.href)
       url.searchParams.delete('customService')
       url.searchParams.delete('customPrice')
+      url.searchParams.delete('customDuration')
       url.searchParams.delete('customNote')
       url.searchParams.delete('quoteId')
       url.searchParams.delete('quoteHoldDate')
@@ -133,6 +138,31 @@ export default function BookPage() {
     })
     fetch(`/api/book/deposit-info?accountId=${accountId}`).then(r => r.json()).then(setDepositInfo)
   }, [accountId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load logged-in member info for auto-fill
+  useEffect(() => {
+    fetch('/api/book/me').then(r => r.ok ? r.json() : null).then(d => {
+      if (d) setMemberInfo(d)
+    })
+  }, [])
+
+  // Auto-fill name/phone when reaching step 2
+  useEffect(() => {
+    if (step === 2 && memberInfo) {
+      if (!name) setName(memberInfo.name)
+      if (!phone) setPhone(memberInfo.phone)
+    }
+  }, [step, memberInfo]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load month status when entering calendar step
+  useEffect(() => {
+    if (step !== 1) return
+    const year = calMonth.getFullYear()
+    const month = calMonth.getMonth() + 1
+    fetch(`/api/book/month-status?year=${year}&month=${month}&duration=${totalDuration}&accountId=${accountId}`)
+      .then(r => r.json())
+      .then(data => setMonthStatus(data || {}))
+  }, [step, calMonth, accountId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function addToCart(svc: Service) {
     setCart(prev => {
@@ -453,13 +483,16 @@ export default function BookPage() {
                   <div className="grid grid-cols-7 gap-1">
                     {Array.from({ length: startPad }).map((_, i) => <div key={`p${i}`} />)}
                     {days.map(day => {
+                      const dateStr = format(day, 'yyyy-MM-dd')
                       const past = isBefore(day, today)
                       const locked = isDateLocked(day)
+                      const available = monthStatus[dateStr] !== false
                       const isSelected = selectedDate && isSameDay(day, selectedDate)
                       const isToday = isSameDay(day, new Date())
+                      const disabled = past || (!locked && !available)
                       return (
                         <button
-                          key={day.toISOString()} disabled={past}
+                          key={day.toISOString()} disabled={disabled}
                           onClick={() => {
                             if (locked) {
                               const openTime = getOpenTimeForDate(day)
@@ -469,7 +502,7 @@ export default function BookPage() {
                             setSelectedDate(day); setSelectedSlot(null)
                           }}
                           className={`aspect-square rounded-xl text-sm font-medium transition-all flex items-center justify-center ${
-                            past ? 'text-muted-foreground/40 cursor-not-allowed' :
+                            disabled ? 'text-muted-foreground/40 cursor-not-allowed' :
                             locked ? 'text-muted-foreground/50 cursor-not-allowed relative' :
                             isSelected ? 'bg-primary text-white shadow-sm' :
                             isToday ? 'bg-primary/15 text-primary font-semibold' : 'hover:bg-accent'

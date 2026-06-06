@@ -26,5 +26,6 @@ export async function POST(req: NextRequest) {
   }
 
   await setCustomerSession({ phone: customer.phone, customerId: customer.id, customerName: customer.name })
-  return NextResponse.json({ ok: true, name: customer.name })
+  const needsNameUpdate = !customer.name?.trim() || customer.name.trim().toLowerCase() === 'test1'
+  return NextResponse.json({ ok: true, name: customer.name, needsNameUpdate })
 }

@@ -56,6 +56,7 @@ export async function PUT(req: NextRequest) {
       ...(quoteMode !== undefined ? { quoteMode } : {}),
       ...(quoteHoldHours !== undefined ? { quoteHoldHours: Math.max(1, Number(quoteHoldHours)) } : {}),
       ...(quotePayHours !== undefined ? { quotePayHours: Math.max(1, Number(quotePayHours)) } : {}),
+      ...(body.quoteDefaultDuration !== undefined ? { quoteDefaultDuration: Math.max(1, Number(body.quoteDefaultDuration)) } : {}),
       ...(bookingReleaseEnabled !== undefined ? { bookingReleaseEnabled: Boolean(bookingReleaseEnabled) } : {}),
       ...(bookingReleaseDay !== undefined ? { bookingReleaseDay: Math.min(28, Math.max(1, Number(bookingReleaseDay))) } : {}),
       ...(bookingReleaseHour !== undefined ? { bookingReleaseHour: Math.min(23, Math.max(0, Number(bookingReleaseHour))) } : {}),

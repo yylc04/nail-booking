@@ -66,6 +66,7 @@ model Store {
   quoteMode             QuoteMode @default(QUOTE_ONLY)
   quoteHoldHours        Int       @default(24)
   quotePayHours         Int       @default(24)
+  quoteDefaultDuration  Int       @default(60)
   bookingReleaseEnabled Boolean   @default(false)
   bookingReleaseDay     Int       @default(25)
   bookingReleaseHour    Int       @default(0)

@@ -23,6 +23,7 @@ interface QuoteReply {
   imageIndex: number
   price: number
   note?: string
+  duration?: number
 }
 
 interface QuoteRecord {
@@ -73,6 +74,7 @@ export default function QuoteStatusPage() {
       customPrice: String(reply.price),
       quoteId: q.id,
     })
+    if (reply.duration) params.set('customDuration', String(reply.duration))
     if (q.quoteMode === 'QUOTE_HOLD' && q.holdDate && q.holdTime) {
       params.set('quoteHoldDate', format(new Date(q.holdDate), 'yyyy-MM-dd'))
       params.set('quoteHoldTime', q.holdTime)
@@ -240,6 +242,7 @@ export default function QuoteStatusPage() {
                                   {reply ? (
                                     <>
                                       <p className="text-base font-bold text-green-700">NT$ {reply.price.toLocaleString()}</p>
+                                      {reply.duration && <p className="text-xs text-muted-foreground mt-0.5">{reply.duration} 分鐘</p>}
                                       {reply.note && <p className="text-xs text-green-800 leading-relaxed mt-0.5">{reply.note}</p>}
                                     </>
                                   ) : (
