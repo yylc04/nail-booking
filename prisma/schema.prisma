@@ -63,10 +63,14 @@ model Store {
   bookingNotes   String?  @db.Text
   depositEnabled Boolean   @default(false)
   depositAmount  Int       @default(0)
-  quoteMode      QuoteMode @default(QUOTE_ONLY)
-  quoteHoldHours Int       @default(24)
-  quotePayHours  Int       @default(24)
-  createdAt      DateTime  @default(now())
+  quoteMode             QuoteMode @default(QUOTE_ONLY)
+  quoteHoldHours        Int       @default(24)
+  quotePayHours         Int       @default(24)
+  bookingReleaseEnabled Boolean   @default(false)
+  bookingReleaseDay     Int       @default(25)
+  bookingReleaseHour    Int       @default(0)
+  bookingReleaseNote    String?   @db.Text
+  createdAt             DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   storeUsers      StoreUser[]

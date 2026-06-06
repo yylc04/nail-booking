@@ -31,6 +31,27 @@ export async function POST(req: NextRequest) {
 
   const storeId = await getStoreIdByAccount(accountId)
 
+  // Check booking release lock
+  const releaseStore = await prisma.store.findUnique({
+    where: { id: storeId },
+    select: { bookingReleaseEnabled: true, bookingReleaseDay: true, bookingReleaseHour: true },
+  })
+  if (releaseStore?.bookingReleaseEnabled) {
+    const bookingDate = new Date(date)
+    const now = new Date()
+    const todayMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+    const dateMonth = new Date(bookingDate.getFullYear(), bookingDate.getMonth(), 1).getTime()
+    if (dateMonth > todayMonth) {
+      const openDate = new Date(
+        bookingDate.getFullYear(), bookingDate.getMonth() - 1,
+        releaseStore.bookingReleaseDay, releaseStore.bookingReleaseHour, 0, 0
+      )
+      if (now < openDate) {
+        return NextResponse.json({ error: '尚未開放該月份的預約' }, { status: 400 })
+      }
+    }
+  }
+
   const totalDuration = services.reduce((s: number, sv: { duration: number }) => s + sv.duration, 0)
   const totalPrice = services.reduce((s: number, sv: { price: number }) => s + sv.price, 0)
   const endTime = minutesToTime(timeToMinutes(startTime) + totalDuration)

@@ -36,6 +36,7 @@ export async function PUT(req: NextRequest) {
     bookingNotes, businessHours, businessSlots, exceptionDates,
     depositEnabled, depositAmount, bankAccounts, storeInfoBlocks,
     quoteMode, quoteHoldHours, quotePayHours,
+    bookingReleaseEnabled, bookingReleaseDay, bookingReleaseHour, bookingReleaseNote,
   } = body
 
   const store = await prisma.store.update({
@@ -55,6 +56,10 @@ export async function PUT(req: NextRequest) {
       ...(quoteMode !== undefined ? { quoteMode } : {}),
       ...(quoteHoldHours !== undefined ? { quoteHoldHours: Math.max(1, Number(quoteHoldHours)) } : {}),
       ...(quotePayHours !== undefined ? { quotePayHours: Math.max(1, Number(quotePayHours)) } : {}),
+      ...(bookingReleaseEnabled !== undefined ? { bookingReleaseEnabled: Boolean(bookingReleaseEnabled) } : {}),
+      ...(bookingReleaseDay !== undefined ? { bookingReleaseDay: Math.min(28, Math.max(1, Number(bookingReleaseDay))) } : {}),
+      ...(bookingReleaseHour !== undefined ? { bookingReleaseHour: Math.min(23, Math.max(0, Number(bookingReleaseHour))) } : {}),
+      ...(bookingReleaseNote !== undefined ? { bookingReleaseNote: bookingReleaseNote?.trim() || null } : {}),
     },
   })
 

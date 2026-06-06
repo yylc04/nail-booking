@@ -5,7 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import {
   Sparkles, ShoppingCart, ChevronLeft, ChevronRight, Check, X,
   Wand2, Banknote, Plus, MapPin, MessageCircle, AtSign,
-  ExternalLink, ImageIcon, Grid3X3, Camera, User,
+  ExternalLink, ImageIcon, Grid3X3, Camera, User, CalendarClock, Lock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,8 @@ interface DepositInfo { depositEnabled: boolean; depositAmount: number; bankAcco
 interface StoreInfo {
   name: string; tagline?: string; logo?: string; address?: string; metroInfo?: string
   lineAccount?: string; igAccount?: string; introduction?: string; bookingNotes?: string
+  bookingReleaseEnabled?: boolean; bookingReleaseDay?: number
+  bookingReleaseHour?: number; bookingReleaseNote?: string | null
 }
 interface PortfolioItem {
   id: string; name: string; price: number | null; imageData: string; categoryId: string | null
@@ -206,6 +208,35 @@ export default function BookPage() {
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
   const startPad = getDay(monthStart)
 
+  // Booking release helpers
+  const releaseEnabled = store?.bookingReleaseEnabled ?? false
+  const releaseDay = store?.bookingReleaseDay ?? 25
+  const releaseHour = store?.bookingReleaseHour ?? 0
+
+  function isDateLocked(date: Date): boolean {
+    if (!releaseEnabled) return false
+    const now = new Date()
+    const todayMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+    const dateMonth = new Date(date.getFullYear(), date.getMonth(), 1).getTime()
+    if (dateMonth <= todayMonth) return false
+    const openDate = new Date(date.getFullYear(), date.getMonth() - 1, releaseDay, releaseHour, 0, 0)
+    return now < openDate
+  }
+
+  function getOpenTimeForDate(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth() - 1, releaseDay, releaseHour, 0, 0)
+  }
+
+  // Next release time for banner
+  const nextReleaseBannerTime: Date | null = (() => {
+    if (!releaseEnabled) return null
+    const now = new Date()
+    const thisMonthOpen = new Date(now.getFullYear(), now.getMonth(), releaseDay, releaseHour, 0, 0)
+    return now < thisMonthOpen
+      ? thisMonthOpen
+      : new Date(now.getFullYear(), now.getMonth() + 1, releaseDay, releaseHour, 0, 0)
+  })()
+
   // ── Special screens ──
   if (showDeposit && depositInfo) {
     return (
@@ -369,6 +400,21 @@ export default function BookPage() {
           {/* Step 1: Date & time */}
           {step === 1 && (
             <div className="space-y-4">
+              {/* Booking release banner */}
+              {releaseEnabled && nextReleaseBannerTime && (
+                <div className="flex items-start gap-2.5 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200/70">
+                  <CalendarClock className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-amber-800">
+                      下次開放預約時間：{format(nextReleaseBannerTime, 'M月d日 HH:00', { locale: zhTW })}
+                    </p>
+                    {store?.bookingReleaseNote && (
+                      <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">{store.bookingReleaseNote}</p>
+                    )}
+                    <p className="text-[11px] text-amber-600 mt-0.5">當月時段不受限，可隨時預約</p>
+                  </div>
+                </div>
+              )}
               <Card className="border-border/50 shadow-sm">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-4">
@@ -385,19 +431,33 @@ export default function BookPage() {
                     {Array.from({ length: startPad }).map((_, i) => <div key={`p${i}`} />)}
                     {days.map(day => {
                       const past = isBefore(day, today)
+                      const locked = isDateLocked(day)
                       const isSelected = selectedDate && isSameDay(day, selectedDate)
                       const isToday = isSameDay(day, new Date())
                       return (
                         <button
                           key={day.toISOString()} disabled={past}
-                          onClick={() => { setSelectedDate(day); setSelectedSlot(null) }}
+                          onClick={() => {
+                            if (locked) {
+                              const openTime = getOpenTimeForDate(day)
+                              toast.error(`尚未開放預約，請於 ${format(openTime, 'M月d日 HH:00', { locale: zhTW })} 後再試`)
+                              return
+                            }
+                            setSelectedDate(day); setSelectedSlot(null)
+                          }}
                           className={`aspect-square rounded-xl text-sm font-medium transition-all flex items-center justify-center ${
                             past ? 'text-muted-foreground/40 cursor-not-allowed' :
+                            locked ? 'text-muted-foreground/50 cursor-not-allowed relative' :
                             isSelected ? 'bg-primary text-white shadow-sm' :
                             isToday ? 'bg-primary/15 text-primary font-semibold' : 'hover:bg-accent'
                           }`}
                         >
-                          {format(day, 'd')}
+                          {locked ? (
+                            <span className="flex flex-col items-center gap-0.5">
+                              <Lock className="w-3 h-3" />
+                              <span className="text-[10px]">{format(day, 'd')}</span>
+                            </span>
+                          ) : format(day, 'd')}
                         </button>
                       )
                     })}

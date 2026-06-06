@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
         address: true, metroInfo: true,
         lineAccount: true, igAccount: true,
         introduction: true, bookingNotes: true,
+        bookingReleaseEnabled: true, bookingReleaseDay: true,
+        bookingReleaseHour: true, bookingReleaseNote: true,
       },
     }),
     prisma.portfolio.findMany({

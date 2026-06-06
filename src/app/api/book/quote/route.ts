@@ -50,12 +50,20 @@ export async function GET(req: NextRequest) {
   if (!phone) {
     const store = await prisma.store.findUnique({
       where: { id: storeId },
-      select: { quoteMode: true, quoteHoldHours: true, quotePayHours: true },
+      select: {
+        quoteMode: true, quoteHoldHours: true, quotePayHours: true,
+        bookingReleaseEnabled: true, bookingReleaseDay: true,
+        bookingReleaseHour: true, bookingReleaseNote: true,
+      },
     })
     return NextResponse.json({
       quoteMode: store?.quoteMode ?? 'QUOTE_ONLY',
       quoteHoldHours: store?.quoteHoldHours ?? 24,
       quotePayHours: store?.quotePayHours ?? 24,
+      bookingReleaseEnabled: store?.bookingReleaseEnabled ?? false,
+      bookingReleaseDay: store?.bookingReleaseDay ?? 25,
+      bookingReleaseHour: store?.bookingReleaseHour ?? 0,
+      bookingReleaseNote: store?.bookingReleaseNote ?? null,
     })
   }
 
@@ -98,7 +106,10 @@ export async function POST(req: NextRequest) {
 
   const store = await prisma.store.findUnique({
     where: { id: storeId },
-    select: { quoteMode: true, quoteHoldHours: true },
+    select: {
+      quoteMode: true, quoteHoldHours: true,
+      bookingReleaseEnabled: true, bookingReleaseDay: true, bookingReleaseHour: true,
+    },
   })
 
   const body = await req.json()
@@ -117,6 +128,23 @@ export async function POST(req: NextRequest) {
 
   if (quoteMode === 'QUOTE_HOLD') {
     if (!holdDate || !holdTime) return NextResponse.json({ error: '傳圖卡位模式需選擇日期和時段' }, { status: 400 })
+
+    // Check booking release lock for holdDate
+    if (store?.bookingReleaseEnabled) {
+      const hDate = new Date(holdDate)
+      const now = new Date()
+      const todayMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+      const holdMonth = new Date(hDate.getFullYear(), hDate.getMonth(), 1).getTime()
+      if (holdMonth > todayMonth) {
+        const openDate = new Date(
+          hDate.getFullYear(), hDate.getMonth() - 1,
+          store.bookingReleaseDay, store.bookingReleaseHour, 0, 0
+        )
+        if (now < openDate) {
+          return NextResponse.json({ error: '尚未開放該月份的預約' }, { status: 400 })
+        }
+      }
+    }
 
     computedHoldDate = new Date(holdDate)
     const replyHours = store?.quoteHoldHours || 24

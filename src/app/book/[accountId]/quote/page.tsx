@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Upload, X, Check, Camera, ChevronLeft, ChevronRight, Calendar, Clock } from 'lucide-react'
+import { Upload, X, Check, Camera, ChevronLeft, ChevronRight, Calendar, Clock, CalendarClock, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +24,10 @@ export default function QuotePage() {
 
   const [quoteMode, setQuoteMode] = useState<'QUOTE_ONLY' | 'QUOTE_HOLD'>('QUOTE_ONLY')
   const [loadingMode, setLoadingMode] = useState(true)
+  const [releaseEnabled, setReleaseEnabled] = useState(false)
+  const [releaseDay, setReleaseDay] = useState(25)
+  const [releaseHour, setReleaseHour] = useState(0)
+  const [releaseNote, setReleaseNote] = useState<string | null>(null)
 
   const [images, setImages] = useState<string[]>([])
   const [note, setNote] = useState('')
@@ -48,6 +52,10 @@ export default function QuotePage() {
       .then(r => r.json())
       .then(data => {
         setQuoteMode(data.quoteMode || 'QUOTE_ONLY')
+        setReleaseEnabled(data.bookingReleaseEnabled ?? false)
+        setReleaseDay(data.bookingReleaseDay ?? 25)
+        setReleaseHour(data.bookingReleaseHour ?? 0)
+        setReleaseNote(data.bookingReleaseNote ?? null)
         setLoadingMode(false)
       })
   }, [accountId])
@@ -62,7 +70,35 @@ export default function QuotePage() {
     setSlotsLoading(false)
   }, [accountId])
 
+  function isDateLocked(date: Date): boolean {
+    if (!releaseEnabled) return false
+    const now = new Date()
+    const todayMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+    const dateMonth = new Date(date.getFullYear(), date.getMonth(), 1).getTime()
+    if (dateMonth <= todayMonth) return false
+    const openDate = new Date(date.getFullYear(), date.getMonth() - 1, releaseDay, releaseHour, 0, 0)
+    return now < openDate
+  }
+
+  function getOpenTimeForDate(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth() - 1, releaseDay, releaseHour, 0, 0)
+  }
+
+  const nextReleaseBannerTime: Date | null = (() => {
+    if (!releaseEnabled) return null
+    const now = new Date()
+    const thisMonthOpen = new Date(now.getFullYear(), now.getMonth(), releaseDay, releaseHour, 0, 0)
+    return now < thisMonthOpen
+      ? thisMonthOpen
+      : new Date(now.getFullYear(), now.getMonth() + 1, releaseDay, releaseHour, 0, 0)
+  })()
+
   function selectDate(day: Date) {
+    if (isDateLocked(day)) {
+      const openTime = getOpenTimeForDate(day)
+      toast.error(`尚未開放預約，請於 ${format(openTime, 'M月d日 HH:00', { locale: zhTW })} 後再試`)
+      return
+    }
     setSelectedDate(day)
     fetchSlots(day)
   }
@@ -230,6 +266,19 @@ export default function QuotePage() {
             </div>
             <p className="text-xs text-muted-foreground -mt-2">店家回覆報價前，此時段將暫時保留給您</p>
 
+            {/* Release banner */}
+            {releaseEnabled && nextReleaseBannerTime && (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200/70">
+                <CalendarClock className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-800">
+                    下次開放預約時間：{format(nextReleaseBannerTime, 'M月d日 HH:00', { locale: zhTW })}
+                  </p>
+                  {releaseNote && <p className="text-xs text-amber-700 mt-0.5">{releaseNote}</p>}
+                </div>
+              </div>
+            )}
+
             {/* Calendar */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -248,6 +297,7 @@ export default function QuotePage() {
                 {Array.from({ length: startPad }).map((_, i) => <div key={`p${i}`} />)}
                 {days.map(day => {
                   const isPast = isBefore(day, today)
+                  const locked = isDateLocked(day)
                   const isSelected = selectedDate ? isSameDay(day, selectedDate) : false
                   const isToday = isSameDay(day, new Date())
                   return (
@@ -256,11 +306,16 @@ export default function QuotePage() {
                       disabled={isPast}
                       onClick={() => selectDate(day)}
                       className={`aspect-square rounded-xl text-sm font-medium transition-all flex items-center justify-center
-                        ${isPast ? 'opacity-30 cursor-not-allowed' : 'hover:bg-primary/10'}
+                        ${isPast ? 'opacity-30 cursor-not-allowed' : locked ? 'text-muted-foreground/50 cursor-not-allowed' : 'hover:bg-primary/10'}
                         ${isSelected ? 'bg-primary text-white' : isToday ? 'ring-2 ring-primary/50 text-primary' : ''}
                       `}
                     >
-                      {format(day, 'd')}
+                      {locked ? (
+                        <span className="flex flex-col items-center gap-0.5">
+                          <Lock className="w-3 h-3" />
+                          <span className="text-[10px]">{format(day, 'd')}</span>
+                        </span>
+                      ) : format(day, 'd')}
                     </button>
                   )
                 })}

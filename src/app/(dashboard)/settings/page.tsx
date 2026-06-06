@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Settings, Upload, Plus, Trash2, Wand2, Banknote, FileText,
   ChevronLeft, ChevronRight, X, Check, GripVertical, AtSign,
-  MapPin, MessageCircle, MessageSquareMore,
+  MapPin, MessageCircle, MessageSquareMore, CalendarClock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, subMonths, isBefore, startOfDay } from 'date-fns'
@@ -80,6 +80,12 @@ export default function SettingsPage() {
   const [quoteHoldHours, setQuoteHoldHours] = useState('24')
   const [quotePayHours, setQuotePayHours] = useState('24')
 
+  // Booking release
+  const [bookingReleaseEnabled, setBookingReleaseEnabled] = useState(false)
+  const [bookingReleaseDay, setBookingReleaseDay] = useState('25')
+  const [bookingReleaseHour, setBookingReleaseHour] = useState('0')
+  const [bookingReleaseNote, setBookingReleaseNote] = useState('')
+
   const [globalSaving, setGlobalSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showApplyMonthDialog, setShowApplyMonthDialog] = useState(false)
@@ -105,6 +111,10 @@ export default function SettingsPage() {
       setQuoteMode(data?.quoteMode || 'QUOTE_ONLY')
       setQuoteHoldHours(data?.quoteHoldHours ? String(data.quoteHoldHours) : '24')
       setQuotePayHours(data?.quotePayHours ? String(data.quotePayHours) : '24')
+      setBookingReleaseEnabled(data?.bookingReleaseEnabled ?? false)
+      setBookingReleaseDay(data?.bookingReleaseDay ? String(data.bookingReleaseDay) : '25')
+      setBookingReleaseHour(data?.bookingReleaseHour !== undefined ? String(data.bookingReleaseHour) : '0')
+      setBookingReleaseNote(data?.bookingReleaseNote || '')
       setTemplates(data?.businessSlots?.map((s: { dayOfWeek: number; time: string }) => ({ dayOfWeek: s.dayOfWeek, time: s.time })) || [])
       setInfoBlocks(data?.storeInfoBlocks?.map((b: { title: string; content: string }) => ({ title: b.title, content: b.content })) || [])
       setLoading(false)
@@ -291,6 +301,10 @@ export default function SettingsPage() {
         quoteMode,
         quoteHoldHours,
         quotePayHours,
+        bookingReleaseEnabled,
+        bookingReleaseDay,
+        bookingReleaseHour,
+        bookingReleaseNote,
       }),
     })
     setGlobalSaving(false)
@@ -694,6 +708,70 @@ export default function SettingsPage() {
                   <span className="text-xs text-muted-foreground">小時（預設 24 小時）</span>
                 </div>
                 <p className="text-xs text-muted-foreground">店家回覆後，客人需在此時間內確認預約，逾時自動取消並釋放時段</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Booking release ── */}
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><CalendarClock className="w-4 h-4 text-primary" /> 預約開放設定</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">啟用後，每月固定日期才開放下個月的預約；關閉時客人可隨時預約有開放的時段</p>
+          {/* Toggle */}
+          <button
+            onClick={() => setBookingReleaseEnabled(v => !v)}
+            className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${bookingReleaseEnabled ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}
+          >
+            <div className="text-left">
+              <p className="text-sm font-semibold">{bookingReleaseEnabled ? '已啟用預約開放設定' : '啟用預約開放設定'}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{bookingReleaseEnabled ? '下個月預約受開放日限制' : '客人可隨時預約'}</p>
+            </div>
+            <div className={`w-11 h-6 rounded-full transition-all shrink-0 relative ${bookingReleaseEnabled ? 'bg-primary' : 'bg-border'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${bookingReleaseEnabled ? 'left-5' : 'left-0.5'}`} />
+            </div>
+          </button>
+
+          {bookingReleaseEnabled && (
+            <div className="space-y-4 pt-1">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">每月開放日（1～28）</Label>
+                  <Input
+                    type="number"
+                    value={bookingReleaseDay}
+                    onChange={e => setBookingReleaseDay(e.target.value)}
+                    min={1} max={28} className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground">每月幾號開放下個月預約</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">開放時間</Label>
+                  <select
+                    value={bookingReleaseHour}
+                    onChange={e => setBookingReleaseHour(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">當天幾點起開放</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">說明文字（顯示在客人預約頁，選填）</Label>
+                <Input
+                  value={bookingReleaseNote}
+                  onChange={e => setBookingReleaseNote(e.target.value)}
+                  placeholder={`例：每月 ${bookingReleaseDay} 號 ${String(bookingReleaseHour).padStart(2,'0')}:00 開放下個月預約`}
+                />
+              </div>
+              <div className="bg-blue-50 border border-blue-200/60 rounded-xl p-3 text-xs text-blue-700 space-y-1">
+                <p className="font-semibold">設定預覽</p>
+                <p>每月 <strong>{bookingReleaseDay}</strong> 號 <strong>{String(bookingReleaseHour).padStart(2,'0')}:00</strong> 開放下個月預約</p>
+                <p className="text-blue-600">當月時段不受此限制，隨時可預約</p>
               </div>
             </div>
           )}
