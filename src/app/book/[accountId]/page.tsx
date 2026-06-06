@@ -79,6 +79,7 @@ export default function BookPage() {
   const [done, setDone] = useState(false)
   const [quoteId, setQuoteId] = useState<string | null>(null)
   const [quoteIsHold, setQuoteIsHold] = useState(false)
+  const [showQuoteAddon, setShowQuoteAddon] = useState(false)
   const [monthStatus, setMonthStatus] = useState<Record<string, boolean>>({})
   const [memberInfo, setMemberInfo] = useState<{ name: string; phone: string } | null>(null)
 
@@ -108,7 +109,7 @@ export default function BookPage() {
         if (!isNaN(price)) {
           const dur = customDuration ? parseInt(customDuration, 10) : (firstSvc?.duration || 60)
           setCart([{
-            id: firstSvc?.id || '__quote__',
+            id: '__quote__',
             name: customService,
             price,
             duration: isNaN(dur) ? 60 : dur,
@@ -118,10 +119,8 @@ export default function BookPage() {
             setSelectedDate(new Date(`${quoteHoldDate}T00:00:00`))
             setSelectedSlot(quoteHoldTime)
             setQuoteIsHold(true)
-            setStep(2)
-          } else {
-            setStep(1)
           }
+          setShowQuoteAddon(true)
         }
       }
       if (quoteIdParam) setQuoteId(quoteIdParam)
@@ -252,7 +251,12 @@ export default function BookPage() {
     setStep(-1); setCart([]); setSelectedDate(null); setSelectedSlot(null)
     setDone(false); setShowDeposit(false); setApptId(''); setTransferCode('')
     setName(''); setPhone(''); setLineName(''); setLineOrIg(''); setNotes(''); setAgreedToNotes(false)
-    setQuoteId(null); setQuoteIsHold(false)
+    setQuoteId(null); setQuoteIsHold(false); setShowQuoteAddon(false)
+  }
+
+  function proceedFromAddon() {
+    setShowQuoteAddon(false)
+    setStep(quoteIsHold ? 2 : 1)
   }
 
   const today = startOfDay(new Date())
@@ -353,6 +357,112 @@ export default function BookPage() {
           <div className="flex gap-3 justify-center flex-wrap">
             <Button variant="outline" onClick={resetAll}>再次預約</Button>
             <Button onClick={() => window.location.href = `/book/login?ref=${accountId}`}>查看我的預約</Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Quote add-on modal ──
+  if (showQuoteAddon) {
+    const quoteItem = cart.find(i => i.id === '__quote__')!
+    const addons = cart.filter(i => i.id !== '__quote__')
+    return (
+      <div className="min-h-screen bg-[#faf9f8] flex flex-col">
+        {/* Header */}
+        <div className="bg-white border-b border-border/40 sticky top-0 z-10">
+          <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+            <button onClick={resetAll} className="p-1.5 rounded-xl hover:bg-accent transition-colors">
+              <ChevronLeft className="w-5 h-5 text-muted-foreground" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base font-bold">加購服務</h1>
+              <p className="text-xs text-muted-foreground">可選擇加購其他服務項目</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-4 py-5 space-y-4">
+          {/* Quote item (fixed) */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">已選擇款式</p>
+            <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-4 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm truncate">{quoteItem.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{quoteItem.duration} 分鐘</p>
+              </div>
+              <p className="text-primary font-bold text-sm shrink-0">NT$ {quoteItem.price.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Add-on services */}
+          {categories.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">加購服務（選填）</p>
+              <div className="space-y-3">
+                {categories.map(cat => (
+                  <div key={cat.id} className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-border/30">
+                      <p className="text-sm font-semibold">{cat.name}</p>
+                    </div>
+                    <div className="divide-y divide-border/20">
+                      {cat.services.map(svc => {
+                        const addonItem = addons.find(i => i.id === svc.id)
+                        const qty = addonItem?.qty ?? 0
+                        return (
+                          <div key={svc.id} className="px-4 py-3 flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">{svc.name}</p>
+                              <p className="text-xs text-muted-foreground">{svc.duration} 分鐘・NT$ {svc.price.toLocaleString()}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {qty > 0 ? (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      if (qty === 1) setCart(prev => prev.filter(i => i.id !== svc.id))
+                                      else setCart(prev => prev.map(i => i.id === svc.id ? { ...i, qty: i.qty - 1 } : i))
+                                    }}
+                                    className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-base leading-none hover:bg-accent transition-colors"
+                                  >−</button>
+                                  <span className="text-sm font-semibold w-4 text-center">{qty}</span>
+                                </>
+                              ) : null}
+                              <button
+                                onClick={() => {
+                                  if (qty === 0) setCart(prev => [...prev, { id: svc.id, name: svc.name, price: svc.price, duration: svc.duration, qty: 1 }])
+                                  else setCart(prev => prev.map(i => i.id === svc.id ? { ...i, qty: i.qty + 1 } : i))
+                                }}
+                                className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center text-base leading-none hover:bg-primary/90 transition-colors"
+                              >+</button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sticky bottom */}
+        <div className="sticky bottom-0 bg-white border-t border-border/40 safe-area-pb">
+          <div className="max-w-lg mx-auto px-4 py-3">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs text-muted-foreground">總金額</p>
+                <p className="text-lg font-bold text-primary">NT$ {totalPrice.toLocaleString()}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">總時長</p>
+                <p className="text-sm font-semibold">{totalDuration} 分鐘</p>
+              </div>
+            </div>
+            <Button className="w-full min-h-[48px] text-base" onClick={proceedFromAddon}>
+              {quoteIsHold ? '前往填寫資料' : '選擇預約時段'}
+            </Button>
           </div>
         </div>
       </div>
