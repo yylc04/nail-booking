@@ -180,7 +180,7 @@ export default function MemberPage() {
       holdDate: isHold ? format(new Date(q.holdDate!), 'yyyy-MM-dd') : null,
       holdTime: isHold ? q.holdTime : null,
     }))
-    router.push(`/book/${accountId}`)
+    router.push(`/book/${accountId}/checkout`)
   }
 
   const addonTotalPrice = addonCart.reduce((s, i) => s + i.price * i.qty, 0)
