@@ -778,6 +778,13 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* ── Bottom save button ── */}
+      <div className="flex justify-end pt-2 pb-4">
+        <Button onClick={handleSave} disabled={globalSaving} className="min-h-[44px] px-8">
+          {globalSaving ? '儲存中...' : '儲存設定'}
+        </Button>
+      </div>
+
       {/* ── Day modal ── */}
       <Dialog open={!!modal} onOpenChange={o => !o && setModal(null)}>
         <DialogContent className="max-w-sm">

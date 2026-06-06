@@ -237,14 +237,6 @@ export default function QuotesPage() {
                     </div>
                   </div>
                 </button>
-                {/* Delete button */}
-                <button
-                  onClick={e => { e.stopPropagation(); setDeleteId(q.id) }}
-                  className="absolute top-3 right-3 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"
-                  title="刪除詢價"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
               </div>
             )
           })}
@@ -355,6 +347,17 @@ export default function QuotesPage() {
                   </Button>
                 </div>
               )}
+
+              {/* Delete */}
+              <div className="pt-1 border-t border-border/40">
+                <Button
+                  variant="ghost"
+                  className="w-full gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/5"
+                  onClick={() => { setDeleteId(selected.id); setSelected(null) }}
+                >
+                  <Trash2 className="w-4 h-4" /> 刪除此詢價
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
