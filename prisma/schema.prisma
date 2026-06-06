@@ -254,8 +254,7 @@ model Quote {
   holdDate      DateTime?   @db.Date
   holdTime      String?
   holdUntil     DateTime?
-  replyPrice    Int?
-  replyNote     String?     @db.Text
+  quoteReplies  String?     @db.Text
   repliedAt     DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt

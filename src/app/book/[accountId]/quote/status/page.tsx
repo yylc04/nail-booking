@@ -26,6 +26,12 @@ import { zhTW } from 'date-fns/locale'
 interface BankAccount { bankName: string; accountNumber: string; accountName: string }
 interface DepositInfo { depositEnabled: boolean; depositAmount: number; bankAccounts: BankAccount[] }
 
+interface QuoteReply {
+  imageIndex: number
+  price: number
+  note?: string
+}
+
 interface QuoteRecord {
   id: string
   quoteNo: string
@@ -38,8 +44,7 @@ interface QuoteRecord {
   holdDate: string | null
   holdTime: string | null
   holdUntil: string | null
-  replyPrice: number | null
-  replyNote: string | null
+  quoteReplies: QuoteReply[]
   repliedAt: string | null
   createdAt: string
 }
@@ -61,6 +66,7 @@ export default function QuoteStatusPage() {
   // Multi-step confirm flow
   const [confirmStep, setConfirmStep] = useState<ConfirmStep | null>(null)
   const [confirmQuote, setConfirmQuote] = useState<QuoteRecord | null>(null)
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
 
   // Add-on services
   const [categories, setCategories] = useState<Category[]>([])
@@ -85,9 +91,10 @@ export default function QuoteStatusPage() {
   const [declineQuote, setDeclineQuote] = useState<QuoteRecord | null>(null)
   const [declining, setDeclining] = useState(false)
 
+  const selectedReply = confirmQuote?.quoteReplies?.find(r => r.imageIndex === selectedImageIndex)
   const addOnsDuration = addOns.reduce((s, a) => s + a.duration, 0)
   const totalDuration = 60 + addOnsDuration
-  const basePrice = confirmQuote?.replyPrice ?? 0
+  const basePrice = selectedReply?.price ?? 0
   const addOnsTotal = addOns.reduce((s, a) => s + a.price, 0)
   const grandTotal = basePrice + addOnsTotal
 
@@ -102,8 +109,9 @@ export default function QuoteStatusPage() {
     if (data.length === 0) toast('查無詢價紀錄')
   }
 
-  function openConfirmFlow(q: QuoteRecord) {
+  function openConfirmFlow(q: QuoteRecord, imageIndex: number) {
     setConfirmQuote(q)
+    setSelectedImageIndex(imageIndex)
     setAddOns([])
     setLineOrIg('')
     setBookingNotes('')
@@ -117,6 +125,7 @@ export default function QuoteStatusPage() {
   function closeConfirmFlow() {
     setConfirmStep(null)
     setConfirmQuote(null)
+    setSelectedImageIndex(null)
   }
 
   async function loadServices() {
@@ -177,7 +186,7 @@ export default function QuoteStatusPage() {
   }
 
   async function handleConfirm() {
-    if (!confirmQuote) return
+    if (!confirmQuote || selectedImageIndex === null) return
     if (confirmQuote.quoteMode === 'QUOTE_ONLY' && (!selectedDate || !selectedSlot)) {
       toast.error('請選擇預約日期和時段'); return
     }
@@ -188,6 +197,7 @@ export default function QuoteStatusPage() {
       body: JSON.stringify({
         action: 'confirm',
         quoteId: confirmQuote.id,
+        selectedImageIndex,
         lineOrIg,
         notes: bookingNotes,
         addOnServices: addOns.map(s => ({ serviceId: s.id, serviceName: s.name, price: s.price, duration: s.duration })),
@@ -233,7 +243,7 @@ export default function QuoteStatusPage() {
   const currentStepIdx = confirmStep ? allSteps.indexOf(confirmStep) : 0
 
   const stepTitles: Record<ConfirmStep, string> = {
-    quote: '報價確認',
+    quote: '確認款式',
     addons: '加購服務',
     datetime: '選擇時段',
     confirm: '確認預約',
@@ -352,57 +362,89 @@ export default function QuoteStatusPage() {
                       </div>
                     )}
 
-                    {/* Images */}
-                    <div className="px-4 pt-3 pb-2">
-                      <div className="flex gap-2 overflow-x-auto pb-1">
-                        {q.images.map((img, i) => (
-                          <div
-                            key={i}
-                            className="w-20 h-20 rounded-xl overflow-hidden border border-border/40 shrink-0 cursor-pointer"
-                            onClick={() => setLightboxSrc(img)}
-                          >
-                            <Image src={img} alt="詢價圖片" width={80} height={80} className="w-full h-full object-cover" unoptimized />
-                          </div>
-                        ))}
-                      </div>
-                      {q.note && (
-                        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                          <span className="font-medium text-foreground">說明：</span>{q.note}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Reply block */}
-                    {(q.status === 'REPLIED' || q.status === 'CONFIRMED') && (
-                      <div className="mx-4 mb-4 mt-1 rounded-xl bg-green-50 border border-green-200/60 p-3 space-y-2">
-                        <p className="text-xs font-semibold text-green-800">店家回覆</p>
-                        {q.replyPrice != null && (
-                          <p className="text-lg font-bold text-green-700">NT$ {q.replyPrice.toLocaleString()}</p>
-                        )}
-                        {q.replyNote && <p className="text-xs text-green-800 leading-relaxed">{q.replyNote}</p>}
-                        {q.repliedAt && (
-                          <p className="text-[10px] text-green-600">回覆時間：{format(new Date(q.repliedAt), 'yyyy/MM/dd HH:mm', { locale: zhTW })}</p>
-                        )}
-
-                        {q.status === 'REPLIED' && (
-                          <div className="flex gap-2 pt-1">
-                            <Button
-                              className="flex-1 min-h-[44px]"
-                              onClick={() => openConfirmFlow(q)}
+                    {/* Images — when PENDING/CONFIRMED/REJECTED/EXPIRED: simple thumbnails */}
+                    {q.status !== 'REPLIED' && (
+                      <div className="px-4 pt-3 pb-2">
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {q.images.map((img, i) => (
+                            <div
+                              key={i}
+                              className="w-20 h-20 rounded-xl overflow-hidden border border-border/40 shrink-0 cursor-pointer"
+                              onClick={() => setLightboxSrc(img)}
                             >
-                              <CalendarCheck className="w-4 h-4 mr-1.5" />
-                              {q.quoteMode === 'QUOTE_HOLD' ? '確認預約' : '立即預約'}
-                            </Button>
-                            {q.quoteMode === 'QUOTE_HOLD' && (
-                              <Button
-                                variant="outline"
-                                className="flex-1 min-h-[44px] text-muted-foreground"
-                                onClick={() => setDeclineQuote(q)}
-                              >
-                                不預約
-                              </Button>
-                            )}
-                          </div>
+                              <Image src={img} alt="詢價圖片" width={80} height={80} className="w-full h-full object-cover" unoptimized />
+                            </div>
+                          ))}
+                        </div>
+                        {q.note && (
+                          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                            <span className="font-medium text-foreground">說明：</span>{q.note}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Reply block — per-image quotes with 選擇此款 */}
+                    {(q.status === 'REPLIED' || q.status === 'CONFIRMED') && (
+                      <div className="px-4 pt-3 pb-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-green-800">店家報價</p>
+                          {q.repliedAt && (
+                            <p className="text-[10px] text-muted-foreground">
+                              {format(new Date(q.repliedAt), 'yyyy/MM/dd HH:mm', { locale: zhTW })}
+                            </p>
+                          )}
+                        </div>
+                        {q.note && (
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            <span className="font-medium text-foreground">說明：</span>{q.note}
+                          </p>
+                        )}
+                        <div className="space-y-2">
+                          {q.images.map((img, i) => {
+                            const reply = q.quoteReplies?.find(r => r.imageIndex === i)
+                            return (
+                              <div key={i} className={`flex gap-3 items-center rounded-xl p-2.5 border ${reply ? 'bg-green-50 border-green-200/60' : 'bg-gray-50 border-border/40'}`}>
+                                <div
+                                  className="w-16 h-16 rounded-xl overflow-hidden border border-border/30 shrink-0 cursor-pointer"
+                                  onClick={() => setLightboxSrc(img)}
+                                >
+                                  <Image src={img} alt={`款式 ${i + 1}`} width={64} height={64} className="w-full h-full object-cover" unoptimized />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-muted-foreground mb-0.5">款式 {i + 1}</p>
+                                  {reply ? (
+                                    <>
+                                      <p className="text-base font-bold text-green-700">NT$ {reply.price.toLocaleString()}</p>
+                                      {reply.note && <p className="text-xs text-green-800 leading-relaxed mt-0.5">{reply.note}</p>}
+                                    </>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground">此款不提供</p>
+                                  )}
+                                </div>
+                                {q.status === 'REPLIED' && reply && (
+                                  <Button
+                                    size="sm"
+                                    className="shrink-0 min-h-[36px] text-xs px-3"
+                                    onClick={() => openConfirmFlow(q, i)}
+                                  >
+                                    選擇此款
+                                  </Button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {/* Decline button for QUOTE_HOLD */}
+                        {q.status === 'REPLIED' && q.quoteMode === 'QUOTE_HOLD' && (
+                          <Button
+                            variant="outline"
+                            className="w-full min-h-[44px] text-muted-foreground"
+                            onClick={() => setDeclineQuote(q)}
+                          >
+                            不預約（釋放時段）
+                          </Button>
                         )}
                       </div>
                     )}
@@ -447,34 +489,33 @@ export default function QuoteStatusPage() {
             </div>
           </DialogHeader>
 
-          {/* Step 1: Quote result */}
-          {confirmStep === 'quote' && confirmQuote && (
+          {/* Step 1: Confirm selected image + price */}
+          {confirmStep === 'quote' && confirmQuote && selectedImageIndex !== null && (
             <div className="space-y-3">
-              <div className="bg-green-50 border border-green-200/60 rounded-xl p-3 space-y-1">
-                <p className="text-xs font-semibold text-green-800">店家報價</p>
-                {confirmQuote.replyPrice != null && (
-                  <p className="text-2xl font-bold text-green-700">NT$ {confirmQuote.replyPrice.toLocaleString()}</p>
-                )}
-                {confirmQuote.replyNote && (
-                  <p className="text-xs text-green-800 leading-relaxed">{confirmQuote.replyNote}</p>
-                )}
-              </div>
-              {confirmQuote.images.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">參考圖片</p>
-                  <div className="flex gap-2 overflow-x-auto">
-                    {confirmQuote.images.map((img, i) => (
-                      <div
-                        key={i}
-                        className="w-20 h-20 rounded-xl overflow-hidden border border-border/40 shrink-0 cursor-pointer"
-                        onClick={() => setLightboxSrc(img)}
-                      >
-                        <Image src={img} alt="" width={80} height={80} className="w-full h-full object-cover" unoptimized />
-                      </div>
-                    ))}
+              <p className="text-xs text-muted-foreground">已選擇款式，確認報價後繼續</p>
+              <div className="flex gap-3 items-center bg-green-50 border border-green-200/60 rounded-xl p-3">
+                {confirmQuote.images[selectedImageIndex] && (
+                  <div
+                    className="w-20 h-20 rounded-xl overflow-hidden border border-border/30 shrink-0 cursor-pointer"
+                    onClick={() => setLightboxSrc(confirmQuote.images[selectedImageIndex])}
+                  >
+                    <Image
+                      src={confirmQuote.images[selectedImageIndex]}
+                      alt={`款式 ${selectedImageIndex + 1}`}
+                      width={80} height={80}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                    />
                   </div>
+                )}
+                <div className="flex-1">
+                  <p className="text-xs text-green-800 font-semibold mb-0.5">款式 {selectedImageIndex + 1}</p>
+                  <p className="text-2xl font-bold text-green-700">NT$ {basePrice.toLocaleString()}</p>
+                  {selectedReply?.note && (
+                    <p className="text-xs text-green-800 mt-0.5 leading-relaxed">{selectedReply.note}</p>
+                  )}
                 </div>
-              )}
+              </div>
               {confirmQuote.quoteMode === 'QUOTE_HOLD' && confirmQuote.holdDate && (
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-2.5 text-xs text-blue-700">
                   <p className="font-semibold">已卡位時段</p>
@@ -503,19 +544,19 @@ export default function QuoteStatusPage() {
                       <p className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">{cat.name}</p>
                       <div className="space-y-1.5">
                         {cat.services.map(svc => {
-                          const selected = addOns.some(a => a.id === svc.id)
+                          const isSelected = addOns.some(a => a.id === svc.id)
                           return (
                             <button
                               key={svc.id}
                               onClick={() => toggleAddOn(svc)}
                               className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center gap-2.5 ${
-                                selected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 bg-white'
+                                isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 bg-white'
                               }`}
                             >
                               <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-colors ${
-                                selected ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+                                isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'
                               }`}>
-                                {selected && <span className="text-white text-[10px] font-bold leading-none">✓</span>}
+                                {isSelected && <span className="text-white text-[10px] font-bold leading-none">✓</span>}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium">{svc.name}</p>
@@ -646,7 +687,7 @@ export default function QuoteStatusPage() {
                 <p className="text-xs font-semibold text-muted-foreground">預約摘要</p>
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-sm">
-                    <span>詢價款式</span>
+                    <span>款式 {selectedImageIndex !== null ? selectedImageIndex + 1 : ''}</span>
                     <span className="font-medium">NT$ {basePrice.toLocaleString()}</span>
                   </div>
                   {addOns.map(a => (

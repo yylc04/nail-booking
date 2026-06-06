@@ -45,9 +45,13 @@ export async function GET(req: NextRequest) {
       id: true, quoteNo: true, note: true, images: true,
       status: true, quoteMode: true,
       holdDate: true, holdTime: true, holdUntil: true,
-      replyPrice: true, replyNote: true, repliedAt: true, createdAt: true,
+      quoteReplies: true, repliedAt: true, createdAt: true,
     },
   })
 
-  return NextResponse.json(quotes.map(q => ({ ...q, images: JSON.parse(q.images) as string[] })))
+  return NextResponse.json(quotes.map(q => ({
+    ...q,
+    images: JSON.parse(q.images) as string[],
+    quoteReplies: q.quoteReplies ? JSON.parse(q.quoteReplies) : [],
+  })))
 }

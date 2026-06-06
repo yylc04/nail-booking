@@ -34,5 +34,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(quotes.map(q => ({
     ...q,
     images: JSON.parse(q.images) as string[],
+    quoteReplies: q.quoteReplies ? JSON.parse(q.quoteReplies) : [],
   })))
 }

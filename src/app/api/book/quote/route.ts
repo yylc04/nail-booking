@@ -87,13 +87,14 @@ export async function GET(req: NextRequest) {
       id: true, quoteNo: true, customerName: true, customerPhone: true,
       note: true, images: true, status: true, quoteMode: true,
       holdDate: true, holdTime: true, holdUntil: true,
-      replyPrice: true, replyNote: true, repliedAt: true, createdAt: true,
+      quoteReplies: true, repliedAt: true, createdAt: true,
     },
   })
 
   return NextResponse.json(quotes.map(q => ({
     ...q,
     images: JSON.parse(q.images) as string[],
+    quoteReplies: q.quoteReplies ? JSON.parse(q.quoteReplies) : [],
   })))
 }
 
@@ -216,7 +217,7 @@ export async function PATCH(req: NextRequest) {
   if (!storeId) return NextResponse.json({ error: '找不到店家' }, { status: 404 })
 
   const body = await req.json()
-  const { action, quoteId, lineOrIg, notes: bookingNotes, addOnServices, bookingDate: bodyDate, bookingTime: bodyTime } = body
+  const { action, quoteId, lineOrIg, notes: bookingNotes, addOnServices, bookingDate: bodyDate, bookingTime: bodyTime, selectedImageIndex } = body
 
   if (!quoteId) return NextResponse.json({ error: '缺少 quoteId' }, { status: 400 })
 
@@ -286,7 +287,12 @@ export async function PATCH(req: NextRequest) {
       if (conflict) return NextResponse.json({ error: '此時段已被預約，請選擇其他時段' }, { status: 400 })
     }
 
-    const basePrice = quote.replyPrice ?? 0
+    const replies: Array<{ imageIndex: number; price: number; note?: string }> = quote.quoteReplies
+      ? JSON.parse(quote.quoteReplies)
+      : []
+    const selectedReply = replies.find(r => r.imageIndex === selectedImageIndex)
+    if (!selectedReply) return NextResponse.json({ error: '請選擇款式' }, { status: 400 })
+    const basePrice = selectedReply.price
     const baseDuration = 60
     const addOns: Array<{ serviceId?: string; serviceName: string; price: number; duration: number }> = addOnServices || []
     const totalPrice = basePrice + addOns.reduce((s, a) => s + a.price, 0)
@@ -322,7 +328,7 @@ export async function PATCH(req: NextRequest) {
         endTime,
         totalPrice,
         totalDuration,
-        notes: bookingNotes?.trim() || `來源：詢價 ${quote.quoteNo}`,
+        notes: bookingNotes?.trim() || `來源：詢價 ${quote.quoteNo}（款式 ${selectedImageIndex + 1}）`,
         services: {
           create: [
             { serviceId: null, serviceName: `詢價款式（${quote.quoteNo}）`, price: basePrice, duration: baseDuration },

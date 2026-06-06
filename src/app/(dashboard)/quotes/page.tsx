@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import {
-  MessageSquareMore, Clock, CheckCircle2, Search, X, ZoomIn,
+  MessageSquareMore, Clock, CheckCircle2, Search, ZoomIn,
   CalendarCheck, XCircle, AlertCircle, Ban, Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -20,6 +20,12 @@ import {
 import { Badge } from '@/components/ui/badge'
 import Image from 'next/image'
 
+interface QuoteReply {
+  imageIndex: number
+  price: number
+  note?: string
+}
+
 interface QuoteItem {
   id: string
   quoteNo: string
@@ -32,8 +38,7 @@ interface QuoteItem {
   holdDate: string | null
   holdTime: string | null
   holdUntil: string | null
-  replyPrice: number | null
-  replyNote: string | null
+  quoteReplies: QuoteReply[]
   repliedAt: string | null
   createdAt: string
 }
@@ -59,9 +64,8 @@ export default function QuotesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  // Reply form
-  const [replyPrice, setReplyPrice] = useState('')
-  const [replyNote, setReplyNote] = useState('')
+  // Per-image reply fields: one entry per image
+  const [replyFields, setReplyFields] = useState<{ price: string; note: string }[]>([])
   const [replying, setReplying] = useState(false)
 
   async function loadQuotes(f: Filter) {
@@ -77,24 +81,31 @@ export default function QuotesPage() {
 
   function openDetail(q: QuoteItem) {
     setSelected(q)
-    setReplyPrice(q.replyPrice != null ? String(q.replyPrice) : '')
-    setReplyNote(q.replyNote || '')
+    const fields = q.images.map((_, i) => {
+      const existing = q.quoteReplies?.find(r => r.imageIndex === i)
+      return { price: existing?.price != null ? String(existing.price) : '', note: existing?.note || '' }
+    })
+    setReplyFields(fields)
+  }
+
+  function updateField(i: number, key: 'price' | 'note', val: string) {
+    setReplyFields(prev => prev.map((f, idx) => idx === i ? { ...f, [key]: val } : f))
   }
 
   async function handleReply() {
     if (!selected) return
-    if (!replyNote.trim() && !replyPrice) {
-      toast.error('請填寫報價金額或回覆說明')
+    const replies: QuoteReply[] = replyFields
+      .map((f, i) => ({ imageIndex: i, price: Number(f.price), note: f.note.trim() || undefined }))
+      .filter((_, i) => replyFields[i].price !== '')
+    if (replies.length === 0) {
+      toast.error('請至少填寫一張圖片的報價金額')
       return
     }
     setReplying(true)
     const res = await fetch(`/api/quotes/${selected.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        replyPrice: replyPrice ? Number(replyPrice) : null,
-        replyNote: replyNote.trim(),
-      }),
+      body: JSON.stringify({ quoteReplies: replies }),
     })
     setReplying(false)
     if (!res.ok) { toast.error('回覆失敗'); return }
@@ -286,21 +297,6 @@ export default function QuotesPage() {
                 </div>
               )}
 
-              {/* Images */}
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground">客人上傳圖片</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {selected.images.map((img, i) => (
-                    <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border/40 relative group cursor-pointer" onClick={() => setLightboxSrc(img)}>
-                      <Image src={img} alt="" fill className="object-cover" unoptimized />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <ZoomIn className="w-5 h-5 text-white" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               {selected.note && (
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-muted-foreground">客人說明</p>
@@ -308,16 +304,58 @@ export default function QuotesPage() {
                 </div>
               )}
 
-              {(selected.status === 'REPLIED' || selected.status === 'CONFIRMED') && (
-                <div className="rounded-xl bg-green-50 border border-green-200/60 p-3 space-y-1">
-                  <p className="text-xs font-semibold text-green-800">已回覆</p>
-                  {selected.replyPrice != null && (
-                    <p className="text-lg font-bold text-green-700">NT$ {selected.replyPrice.toLocaleString()}</p>
-                  )}
-                  {selected.replyNote && <p className="text-xs text-green-800">{selected.replyNote}</p>}
+              {/* Images with per-image reply info (when already replied/confirmed) */}
+              {(selected.status === 'REPLIED' || selected.status === 'CONFIRMED') ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">各款報價</p>
+                  <div className="space-y-3">
+                    {selected.images.map((img, i) => {
+                      const reply = selected.quoteReplies?.find(r => r.imageIndex === i)
+                      return (
+                        <div key={i} className="flex gap-3 items-start bg-accent/20 rounded-xl p-3">
+                          <div
+                            className="w-16 h-16 rounded-xl overflow-hidden border border-border/40 shrink-0 cursor-pointer relative group"
+                            onClick={() => setLightboxSrc(img)}
+                          >
+                            <Image src={img} alt="" fill className="object-cover" unoptimized />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <ZoomIn className="w-4 h-4 text-white" />
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-muted-foreground mb-1">款式 {i + 1}</p>
+                            {reply ? (
+                              <>
+                                <p className="text-base font-bold text-green-700">NT$ {reply.price.toLocaleString()}</p>
+                                {reply.note && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{reply.note}</p>}
+                              </>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">此款不提供</p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                   {selected.repliedAt && (
-                    <p className="text-[10px] text-green-600">{format(new Date(selected.repliedAt), 'yyyy/MM/dd HH:mm', { locale: zhTW })}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      回覆時間：{format(new Date(selected.repliedAt), 'yyyy/MM/dd HH:mm', { locale: zhTW })}
+                    </p>
                   )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">客人上傳圖片</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selected.images.map((img, i) => (
+                      <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border/40 relative group cursor-pointer" onClick={() => setLightboxSrc(img)}>
+                        <Image src={img} alt="" fill className="object-cover" unoptimized />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <ZoomIn className="w-5 h-5 text-white" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -330,20 +368,48 @@ export default function QuotesPage() {
                 </div>
               )}
 
-              {/* Reply form */}
+              {/* Per-image reply form */}
               {selected.status !== 'CONFIRMED' && selected.status !== 'REJECTED' && selected.status !== 'EXPIRED' && (
-                <div className="space-y-3 pt-1 border-t border-border/40">
-                  <p className="text-sm font-semibold">{selected.status === 'REPLIED' ? '修改回覆' : '送出回覆'}</p>
-                  <div className="space-y-2">
-                    <Label className="text-xs">報價金額（NT$）</Label>
-                    <Input type="number" value={replyPrice} onChange={e => setReplyPrice(e.target.value)} placeholder="例：1800" min={0} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">回覆說明</Label>
-                    <Textarea value={replyNote} onChange={e => setReplyNote(e.target.value)} placeholder="例如：此款需加收手繪費用 NT$300，整體約 NT$2,100" rows={3} />
-                  </div>
+                <div className="space-y-4 pt-1 border-t border-border/40">
+                  <p className="text-sm font-semibold">{selected.status === 'REPLIED' ? '修改各款報價' : '填寫各款報價'}</p>
+                  <p className="text-xs text-muted-foreground -mt-2">可只填部分圖片，未填金額的款式會顯示「此款不提供」</p>
+                  {selected.images.map((img, i) => (
+                    <div key={i} className="space-y-2 bg-accent/20 rounded-xl p-3">
+                      <div className="flex gap-3 items-start">
+                        <div
+                          className="w-14 h-14 rounded-xl overflow-hidden border border-border/40 shrink-0 cursor-pointer relative group"
+                          onClick={() => setLightboxSrc(img)}
+                        >
+                          <Image src={img} alt="" fill className="object-cover" unoptimized />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <ZoomIn className="w-3.5 h-3.5 text-white" />
+                          </div>
+                        </div>
+                        <p className="text-sm font-medium mt-1">款式 {i + 1}</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">報價金額（NT$）</Label>
+                        <Input
+                          type="number"
+                          value={replyFields[i]?.price ?? ''}
+                          onChange={e => updateField(i, 'price', e.target.value)}
+                          placeholder="例：1800（不填表示此款不提供）"
+                          min={0}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">說明（選填）</Label>
+                        <Textarea
+                          value={replyFields[i]?.note ?? ''}
+                          onChange={e => updateField(i, 'note', e.target.value)}
+                          placeholder="例：此款需加收手繪費..."
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                  ))}
                   <Button className="w-full min-h-[44px]" onClick={handleReply} disabled={replying}>
-                    {replying ? '送出中...' : '送出回覆'}
+                    {replying ? '送出中...' : '送出報價'}
                   </Button>
                 </div>
               )}

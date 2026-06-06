@@ -10,7 +10,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params
   const body = await req.json()
-  const { action, replyPrice, replyNote } = body
+  const { action, quoteReplies } = body
 
   if (action === 'reject') {
     const result = await prisma.quote.updateMany({
@@ -25,6 +25,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const existing = await prisma.quote.findFirst({ where: { id, storeId }, select: { quoteMode: true } })
   if (!existing) return NextResponse.json({ error: '找不到此詢價' }, { status: 404 })
 
+  const replies: Array<{ imageIndex: number; price: number; note?: string }> = Array.isArray(quoteReplies)
+    ? quoteReplies.filter(r => typeof r.imageIndex === 'number' && typeof r.price === 'number')
+    : []
+  if (replies.length === 0) return NextResponse.json({ error: '請至少填寫一張圖片的報價' }, { status: 400 })
+
   let newHoldUntil: Date | undefined
   if (existing.quoteMode === 'QUOTE_HOLD') {
     const store = await prisma.store.findUnique({ where: { id: storeId }, select: { quotePayHours: true } })
@@ -36,8 +41,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id },
     data: {
       status: 'REPLIED',
-      replyPrice: replyPrice != null ? Number(replyPrice) : null,
-      replyNote: replyNote?.trim() || null,
+      quoteReplies: JSON.stringify(replies),
       repliedAt: new Date(),
       ...(newHoldUntil ? { holdUntil: newHoldUntil } : {}),
     },
