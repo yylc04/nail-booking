@@ -325,12 +325,9 @@ export default function SettingsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6 max-w-3xl">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Settings className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-bold">營業設定</h1>
-        </div>
-        <Button onClick={handleSave} disabled={globalSaving} className="min-h-[44px]">{globalSaving ? '儲存中...' : '儲存設定'}</Button>
+      <div className="flex items-center gap-3">
+        <Settings className="w-6 h-6 text-primary" />
+        <h1 className="text-xl font-bold">營業設定</h1>
       </div>
 
       {/* ── Store info ── */}
