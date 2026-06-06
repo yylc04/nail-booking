@@ -96,34 +96,53 @@ export default function BookPage() {
       setPortfolio(data.portfolio || [])
       setStoreInfoBlocks(data.storeInfoBlocks || [])
 
-      // Handle quote flow URL params
-      const customService = searchParams.get('customService')
-      const customPrice = searchParams.get('customPrice')
-      const customDuration = searchParams.get('customDuration')
-      const quoteIdParam = searchParams.get('quoteId')
-      const quoteHoldDate = searchParams.get('quoteHoldDate')
-      const quoteHoldTime = searchParams.get('quoteHoldTime')
-      if (customService && customPrice) {
-        const price = parseInt(customPrice, 10)
-        const firstSvc = cats.flatMap(c => c.services)[0]
-        if (!isNaN(price)) {
-          const dur = customDuration ? parseInt(customDuration, 10) : (firstSvc?.duration || 60)
-          setCart([{
-            id: '__quote__',
-            name: customService,
-            price,
-            duration: isNaN(dur) ? 60 : dur,
-            qty: 1,
-          }])
-          if (quoteHoldDate && quoteHoldTime) {
-            setSelectedDate(new Date(`${quoteHoldDate}T00:00:00`))
-            setSelectedSlot(quoteHoldTime)
+      // Handle quote flow: localStorage (from member page modal) takes priority over URL params
+      const saved = localStorage.getItem('nail_booking_quote_cart')
+      if (saved) {
+        try {
+          const data = JSON.parse(saved)
+          localStorage.removeItem('nail_booking_quote_cart')
+          if (data.cart?.length) setCart(data.cart)
+          if (data.quoteId) setQuoteId(data.quoteId)
+          if (data.quoteIsHold && data.holdDate && data.holdTime) {
+            setSelectedDate(new Date(`${data.holdDate}T00:00:00`))
+            setSelectedSlot(data.holdTime)
             setQuoteIsHold(true)
+            setStep(2)
+          } else {
+            setStep(1)
           }
-          setShowQuoteAddon(true)
+        } catch {}
+      } else {
+        // URL param flow (from quote/status page)
+        const customService = searchParams.get('customService')
+        const customPrice = searchParams.get('customPrice')
+        const customDuration = searchParams.get('customDuration')
+        const quoteIdParam = searchParams.get('quoteId')
+        const quoteHoldDate = searchParams.get('quoteHoldDate')
+        const quoteHoldTime = searchParams.get('quoteHoldTime')
+        if (customService && customPrice) {
+          const price = parseInt(customPrice, 10)
+          const firstSvc = cats.flatMap(c => c.services)[0]
+          if (!isNaN(price)) {
+            const dur = customDuration ? parseInt(customDuration, 10) : (firstSvc?.duration || 60)
+            setCart([{
+              id: '__quote__',
+              name: customService,
+              price,
+              duration: isNaN(dur) ? 60 : dur,
+              qty: 1,
+            }])
+            if (quoteHoldDate && quoteHoldTime) {
+              setSelectedDate(new Date(`${quoteHoldDate}T00:00:00`))
+              setSelectedSlot(quoteHoldTime)
+              setQuoteIsHold(true)
+            }
+            setShowQuoteAddon(true)
+          }
         }
+        if (quoteIdParam) setQuoteId(quoteIdParam)
       }
-      if (quoteIdParam) setQuoteId(quoteIdParam)
       // Clean URL params
       const url = new URL(window.location.href)
       url.searchParams.delete('customService')
