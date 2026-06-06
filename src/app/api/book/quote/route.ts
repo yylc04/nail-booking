@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ quoteNo: quote.quoteNo, id: quote.id })
 }
 
-// PATCH — confirm or decline a QUOTE_HOLD quote
+// PATCH — confirm or decline a quote
 export async function PATCH(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const accountId = searchParams.get('accountId')
@@ -216,32 +216,82 @@ export async function PATCH(req: NextRequest) {
   if (!storeId) return NextResponse.json({ error: '找不到店家' }, { status: 404 })
 
   const body = await req.json()
-  const { action, quoteId, lineOrIg, notes: bookingNotes } = body
+  const { action, quoteId, lineOrIg, notes: bookingNotes, addOnServices, bookingDate: bodyDate, bookingTime: bodyTime } = body
 
   if (!quoteId) return NextResponse.json({ error: '缺少 quoteId' }, { status: 400 })
 
   const quote = await prisma.quote.findFirst({
-    where: { id: quoteId, storeId, quoteMode: 'QUOTE_HOLD' },
+    where: { id: quoteId, storeId },
   })
   if (!quote) return NextResponse.json({ error: '找不到此詢價' }, { status: 404 })
 
   if (action === 'decline') {
+    if (quote.quoteMode !== 'QUOTE_HOLD') return NextResponse.json({ error: '此詢價不支援取消' }, { status: 400 })
     await prisma.quote.update({ where: { id: quoteId }, data: { status: 'REJECTED' } })
     return NextResponse.json({ ok: true })
   }
 
   if (action === 'confirm') {
     if (quote.status !== 'REPLIED') return NextResponse.json({ error: '尚未收到店家報價' }, { status: 400 })
-    if (!quote.holdDate || !quote.holdTime) return NextResponse.json({ error: '卡位資訊缺失' }, { status: 400 })
-    if (quote.holdUntil && quote.holdUntil < new Date()) {
-      await prisma.quote.update({ where: { id: quoteId }, data: { status: 'EXPIRED' } })
-      return NextResponse.json({ error: '卡位已過期，請重新詢價' }, { status: 400 })
+
+    let bookingDateObj: Date
+    let startTime: string
+
+    if (quote.quoteMode === 'QUOTE_HOLD') {
+      if (!quote.holdDate || !quote.holdTime) return NextResponse.json({ error: '卡位資訊缺失' }, { status: 400 })
+      if (quote.holdUntil && quote.holdUntil < new Date()) {
+        await prisma.quote.update({ where: { id: quoteId }, data: { status: 'EXPIRED' } })
+        return NextResponse.json({ error: '卡位已過期，請重新詢價' }, { status: 400 })
+      }
+      bookingDateObj = quote.holdDate
+      startTime = quote.holdTime
+    } else {
+      // QUOTE_ONLY: date/time must be provided in request body
+      if (!bodyDate || !bodyTime) return NextResponse.json({ error: '請選擇預約日期和時段' }, { status: 400 })
+      bookingDateObj = new Date(bodyDate)
+      startTime = bodyTime
+
+      // Check booking release lock
+      const releaseStore = await prisma.store.findUnique({
+        where: { id: storeId },
+        select: { bookingReleaseEnabled: true, bookingReleaseDay: true, bookingReleaseHour: true },
+      })
+      if (releaseStore?.bookingReleaseEnabled) {
+        const now = new Date()
+        const todayMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+        const dateMonth = new Date(bookingDateObj.getFullYear(), bookingDateObj.getMonth(), 1).getTime()
+        if (dateMonth > todayMonth) {
+          const openDate = new Date(
+            bookingDateObj.getFullYear(), bookingDateObj.getMonth() - 1,
+            releaseStore.bookingReleaseDay, releaseStore.bookingReleaseHour, 0, 0
+          )
+          if (now < openDate) return NextResponse.json({ error: '尚未開放該月份的預約' }, { status: 400 })
+        }
+      }
+
+      // Check slot conflict
+      const baseDur = 60
+      const addonDur = (addOnServices || []).reduce((s: number, a: { duration: number }) => s + a.duration, 0)
+      const slotStartMin = timeToMinutes(bodyTime)
+      const slotEndMin = slotStartMin + baseDur + addonDur
+      const existing = await prisma.appointment.findMany({
+        where: { storeId, date: bookingDateObj, status: { notIn: ['CANCELLED'] } },
+        select: { startTime: true, endTime: true },
+      })
+      const conflict = existing.some(a => {
+        const aStart = timeToMinutes(a.startTime)
+        const aEnd = timeToMinutes(a.endTime)
+        return slotStartMin < aEnd && slotEndMin > aStart
+      })
+      if (conflict) return NextResponse.json({ error: '此時段已被預約，請選擇其他時段' }, { status: 400 })
     }
 
-    const price = quote.replyPrice ?? 0
-    const duration = 60
-    const startTime = quote.holdTime
-    const endTime = minutesToTime(timeToMinutes(startTime) + duration)
+    const basePrice = quote.replyPrice ?? 0
+    const baseDuration = 60
+    const addOns: Array<{ serviceId?: string; serviceName: string; price: number; duration: number }> = addOnServices || []
+    const totalPrice = basePrice + addOns.reduce((s, a) => s + a.price, 0)
+    const totalDuration = baseDuration + addOns.reduce((s, a) => s + a.duration, 0)
+    const endTime = minutesToTime(timeToMinutes(startTime) + totalDuration)
 
     // Find or create customer
     let customer = await prisma.customer.findUnique({
@@ -267,26 +317,28 @@ export async function PATCH(req: NextRequest) {
       data: {
         customerId: customer.id,
         storeId,
-        date: quote.holdDate,
+        date: bookingDateObj,
         startTime,
         endTime,
-        totalPrice: price,
-        totalDuration: duration,
+        totalPrice,
+        totalDuration,
         notes: bookingNotes?.trim() || `來源：詢價 ${quote.quoteNo}`,
         services: {
-          create: [{
-            serviceId: null,
-            serviceName: `詢價款式（${quote.quoteNo}）`,
-            price,
-            duration,
-          }],
+          create: [
+            { serviceId: null, serviceName: `詢價款式（${quote.quoteNo}）`, price: basePrice, duration: baseDuration },
+            ...addOns.map(a => ({
+              serviceId: a.serviceId || null,
+              serviceName: a.serviceName,
+              price: a.price,
+              duration: a.duration,
+            })),
+          ],
         },
       },
     })
 
     await prisma.quote.update({ where: { id: quoteId }, data: { status: 'CONFIRMED' } })
 
-    // Return deposit info
     const depositInfo = await prisma.store.findUnique({
       where: { id: storeId },
       select: { depositEnabled: true, depositAmount: true, bankAccounts: { orderBy: { order: 'asc' } } },

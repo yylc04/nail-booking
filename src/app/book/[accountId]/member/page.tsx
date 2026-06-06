@@ -1,13 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  CalendarDays, MessageSquareMore, LogOut, ChevronLeft,
+  CalendarDays, MessageSquareMore, LogOut, ChevronLeft, ChevronRight,
   CalendarCheck, Clock, CheckCircle2, XCircle, AlertCircle, Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import {
+  format, addMonths, subMonths, startOfMonth, endOfMonth,
+  eachDayOfInterval, getDay, isSameDay, isBefore, startOfDay,
+} from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -39,6 +42,9 @@ interface QuoteRecord {
 
 interface BankAccount { bankName: string; accountNumber: string; accountName: string }
 interface DepositInfo { depositEnabled: boolean; depositAmount: number; bankAccounts: BankAccount[] }
+interface Service { id: string; name: string; price: number; duration: number }
+interface Category { id: string; name: string; services: Service[] }
+type ConfirmStep = 'quote' | 'addons' | 'datetime' | 'confirm'
 
 const APPT_STATUS_LABEL: Record<string, string> = {
   PENDING: '待確認', CONFIRMED: '已確認', COMPLETED: '已完成', CANCELLED: '已取消',
@@ -74,12 +80,26 @@ export default function MemberPage() {
   const [quotesLoaded, setQuotesLoaded] = useState(false)
   const [cancelId, setCancelId] = useState<string | null>(null)
 
-  // Quote confirm dialog
+  // Multi-step confirm flow
+  const [confirmStep, setConfirmStep] = useState<ConfirmStep | null>(null)
   const [confirmQuote, setConfirmQuote] = useState<QuoteRecord | null>(null)
   const [lineOrIg, setLineOrIg] = useState('')
   const [bookingNotes, setBookingNotes] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [confirmedDeposit, setConfirmedDeposit] = useState<DepositInfo | null>(null)
+
+  // Add-on services
+  const [categories, setCategories] = useState<Category[]>([])
+  const [addOns, setAddOns] = useState<Service[]>([])
+  const [servicesLoading, setServicesLoading] = useState(false)
+
+  // Date/time selection (QUOTE_ONLY)
+  const [calMonth, setCalMonth] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
+  const [slots, setSlots] = useState<string[]>([])
+  const [dayClosed, setDayClosed] = useState(false)
+  const [slotsLoading, setSlotsLoading] = useState(false)
 
   // Quote decline dialog
   const [declineQuote, setDeclineQuote] = useState<QuoteRecord | null>(null)
@@ -127,19 +147,107 @@ export default function MemberPage() {
     setCancelId(null)
   }
 
+  const addOnsDuration = addOns.reduce((s, a) => s + a.duration, 0)
+  const totalDuration = 60 + addOnsDuration
+  const basePrice = confirmQuote?.replyPrice ?? 0
+  const addOnsTotal = addOns.reduce((s, a) => s + a.price, 0)
+  const grandTotal = basePrice + addOnsTotal
+
+  function openConfirmFlow(q: QuoteRecord) {
+    setConfirmQuote(q)
+    setAddOns([])
+    setLineOrIg('')
+    setBookingNotes('')
+    setSelectedDate(null)
+    setSelectedSlot(null)
+    setSlots([])
+    setCalMonth(new Date())
+    setConfirmStep('quote')
+  }
+
+  function closeConfirmFlow() {
+    setConfirmStep(null)
+    setConfirmQuote(null)
+  }
+
+  async function loadServices() {
+    if (categories.length > 0) return
+    setServicesLoading(true)
+    const res = await fetch(`/api/book/services?accountId=${accountId}`)
+    const data = await res.json()
+    setCategories(data.categories || [])
+    setServicesLoading(false)
+  }
+
+  const fetchSlots = useCallback(async (date: Date, dur: number) => {
+    setSlotsLoading(true)
+    setSelectedSlot(null)
+    setSlots([])
+    const res = await fetch(`/api/book/available-slots?date=${format(date, 'yyyy-MM-dd')}&duration=${dur}&accountId=${accountId}`)
+    const data = await res.json()
+    setSlots(data.slots || [])
+    setDayClosed(data.closed || false)
+    setSlotsLoading(false)
+  }, [accountId])
+
+  async function goNext() {
+    if (!confirmQuote) return
+    if (confirmStep === 'quote') { await loadServices(); setConfirmStep('addons'); return }
+    if (confirmStep === 'addons') {
+      if (confirmQuote.quoteMode === 'QUOTE_ONLY') setConfirmStep('datetime')
+      else setConfirmStep('confirm')
+      return
+    }
+    if (confirmStep === 'datetime') {
+      if (!selectedDate || !selectedSlot) { toast.error('請選擇日期和時段'); return }
+      setConfirmStep('confirm')
+      return
+    }
+  }
+
+  function goBack() {
+    if (!confirmQuote) return
+    if (confirmStep === 'confirm') {
+      if (confirmQuote.quoteMode === 'QUOTE_ONLY') setConfirmStep('datetime')
+      else setConfirmStep('addons')
+      return
+    }
+    if (confirmStep === 'datetime') { setConfirmStep('addons'); return }
+    if (confirmStep === 'addons') { setConfirmStep('quote'); return }
+    if (confirmStep === 'quote') { closeConfirmFlow(); return }
+  }
+
+  function toggleAddOn(svc: Service) {
+    setAddOns(prev =>
+      prev.find(a => a.id === svc.id) ? prev.filter(a => a.id !== svc.id) : [...prev, svc]
+    )
+  }
+
   async function handleConfirm() {
     if (!confirmQuote) return
+    if (confirmQuote.quoteMode === 'QUOTE_ONLY' && (!selectedDate || !selectedSlot)) {
+      toast.error('請選擇預約日期和時段'); return
+    }
     setConfirming(true)
     const res = await fetch(`/api/book/quote?accountId=${accountId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'confirm', quoteId: confirmQuote.id, lineOrIg, notes: bookingNotes }),
+      body: JSON.stringify({
+        action: 'confirm',
+        quoteId: confirmQuote.id,
+        lineOrIg,
+        notes: bookingNotes,
+        addOnServices: addOns.map(s => ({ serviceId: s.id, serviceName: s.name, price: s.price, duration: s.duration })),
+        ...(confirmQuote.quoteMode === 'QUOTE_ONLY' && selectedDate && selectedSlot
+          ? { bookingDate: format(selectedDate, 'yyyy-MM-dd'), bookingTime: selectedSlot }
+          : {}),
+      }),
     })
     const data = await res.json()
     setConfirming(false)
     if (!res.ok) { toast.error(data.error || '確認失敗'); return }
     setConfirmedDeposit(data.depositInfo)
-    setConfirmQuote(null)
+    closeConfirmFlow()
     setQuotesLoaded(false)
     loadQuotes()
   }
@@ -361,26 +469,21 @@ export default function MemberPage() {
                           <p className="text-[10px] text-green-600">回覆時間：{format(new Date(q.repliedAt), 'yyyy/MM/dd HH:mm', { locale: zhTW })}</p>
                         )}
 
-                        {/* QUOTE_HOLD: confirm / decline */}
-                        {q.quoteMode === 'QUOTE_HOLD' && q.status === 'REPLIED' && (
+                        {q.status === 'REPLIED' && (
                           <div className="flex gap-2 pt-1">
                             <Button
                               className="flex-1 min-h-[44px]"
-                              onClick={() => { setConfirmQuote(q); setLineOrIg(''); setBookingNotes('') }}
+                              onClick={() => openConfirmFlow(q)}
                             >
-                              <CalendarCheck className="w-4 h-4 mr-1.5" /> 確認預約
+                              <CalendarCheck className="w-4 h-4 mr-1.5" />
+                              {q.quoteMode === 'QUOTE_HOLD' ? '確認預約' : '立即預約'}
                             </Button>
-                            <Button variant="outline" className="flex-1 min-h-[44px] text-muted-foreground" onClick={() => setDeclineQuote(q)}>
-                              不預約
-                            </Button>
+                            {q.quoteMode === 'QUOTE_HOLD' && (
+                              <Button variant="outline" className="flex-1 min-h-[44px] text-muted-foreground" onClick={() => setDeclineQuote(q)}>
+                                不預約
+                              </Button>
+                            )}
                           </div>
-                        )}
-
-                        {/* QUOTE_ONLY: book now */}
-                        {q.quoteMode === 'QUOTE_ONLY' && q.replyPrice != null && q.status === 'REPLIED' && (
-                          <Button className="w-full min-h-[44px] mt-1" onClick={() => router.push(`/book/${accountId}?customService=${encodeURIComponent('自訂款式')}&customPrice=${q.replyPrice}&customNote=${encodeURIComponent(q.replyNote || '')}`)}>
-                            立即預約
-                          </Button>
                         )}
                       </div>
                     )}
@@ -410,38 +513,241 @@ export default function MemberPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirm quote dialog */}
-      <Dialog open={!!confirmQuote} onOpenChange={o => !o && setConfirmQuote(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>確認預約</DialogTitle></DialogHeader>
-          {confirmQuote && (
-            <div className="space-y-4">
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 text-sm space-y-1">
-                <p className="font-semibold text-primary">
-                  {confirmQuote.holdDate && format(new Date(confirmQuote.holdDate), 'yyyy/MM/dd（EEEE）', { locale: zhTW })} {confirmQuote.holdTime}
-                </p>
-                {confirmQuote.replyPrice != null && (
-                  <p className="text-foreground">費用：NT$ {confirmQuote.replyPrice.toLocaleString()}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">LINE / IG（選填）</Label>
-                <Input value={lineOrIg} onChange={e => setLineOrIg(e.target.value)} placeholder="@your_line_id" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">備註（選填）</Label>
-                <Textarea value={bookingNotes} onChange={e => setBookingNotes(e.target.value)} rows={2} placeholder="有任何需要告知的事項..." />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setConfirmQuote(null)}>取消</Button>
-                <Button className="flex-1" onClick={handleConfirm} disabled={confirming}>
-                  {confirming ? '確認中...' : '確認預約'}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Multi-step confirm dialog */}
+      {(() => {
+        const allSteps: ConfirmStep[] = confirmQuote?.quoteMode === 'QUOTE_ONLY'
+          ? ['quote', 'addons', 'datetime', 'confirm']
+          : ['quote', 'addons', 'confirm']
+        const currentStepIdx = confirmStep ? allSteps.indexOf(confirmStep) : 0
+        const stepTitles: Record<ConfirmStep, string> = {
+          quote: '報價確認', addons: '加購服務', datetime: '選擇時段', confirm: '確認預約',
+        }
+        const today = startOfDay(new Date())
+        const monthStart = startOfMonth(calMonth)
+        const monthEnd = endOfMonth(calMonth)
+        const calDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
+        const startPad = getDay(monthStart)
+        return (
+          <Dialog open={!!confirmStep} onOpenChange={o => !o && closeConfirmFlow()}>
+            <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-base">{confirmStep && stepTitles[confirmStep]}</DialogTitle>
+                <div className="flex gap-1 pt-1">
+                  {allSteps.map((s, i) => (
+                    <div key={s} className={`flex-1 h-1 rounded-full transition-colors ${i <= currentStepIdx ? 'bg-primary' : 'bg-border'}`} />
+                  ))}
+                </div>
+              </DialogHeader>
+
+              {/* Step 1: Quote result */}
+              {confirmStep === 'quote' && confirmQuote && (
+                <div className="space-y-3">
+                  <div className="bg-green-50 border border-green-200/60 rounded-xl p-3 space-y-1">
+                    <p className="text-xs font-semibold text-green-800">店家報價</p>
+                    {confirmQuote.replyPrice != null && (
+                      <p className="text-2xl font-bold text-green-700">NT$ {confirmQuote.replyPrice.toLocaleString()}</p>
+                    )}
+                    {confirmQuote.replyNote && (
+                      <p className="text-xs text-green-800 leading-relaxed">{confirmQuote.replyNote}</p>
+                    )}
+                  </div>
+                  {confirmQuote.images.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">參考圖片</p>
+                      <div className="flex gap-2 overflow-x-auto">
+                        {confirmQuote.images.map((img, i) => (
+                          <div key={i} className="w-20 h-20 rounded-xl overflow-hidden border border-border/40 shrink-0 cursor-pointer" onClick={() => setLightboxSrc(img)}>
+                            <Image src={img} alt="" width={80} height={80} className="w-full h-full object-cover" unoptimized />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {confirmQuote.quoteMode === 'QUOTE_HOLD' && confirmQuote.holdDate && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-2.5 text-xs text-blue-700">
+                      <p className="font-semibold">已卡位時段</p>
+                      <p>{format(new Date(confirmQuote.holdDate), 'yyyy/MM/dd（EEEE）', { locale: zhTW })} {confirmQuote.holdTime}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={closeConfirmFlow}>取消</Button>
+                    <Button className="flex-1 min-h-[44px]" onClick={goNext}>下一步</Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Add-on services */}
+              {confirmStep === 'addons' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">可加購其他服務，或直接點「下一步」跳過</p>
+                  {servicesLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">載入中...</p>
+                  ) : categories.filter(c => c.services.length > 0).length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">此店家目前無其他服務項目</p>
+                  ) : (
+                    <div className="space-y-3 max-h-[38vh] overflow-y-auto pr-0.5">
+                      {categories.filter(c => c.services.length > 0).map(cat => (
+                        <div key={cat.id}>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">{cat.name}</p>
+                          <div className="space-y-1.5">
+                            {cat.services.map(svc => {
+                              const selected = addOns.some(a => a.id === svc.id)
+                              return (
+                                <button key={svc.id} onClick={() => toggleAddOn(svc)}
+                                  className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center gap-2.5 ${selected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 bg-white'}`}
+                                >
+                                  <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-colors ${selected ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                                    {selected && <span className="text-white text-[10px] font-bold leading-none">✓</span>}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium">{svc.name}</p>
+                                    <p className="text-xs text-muted-foreground">{svc.duration} 分鐘</p>
+                                  </div>
+                                  <p className="text-sm font-semibold text-primary shrink-0">+NT$ {svc.price.toLocaleString()}</p>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {addOns.length > 0 && (
+                    <div className="bg-primary/5 border border-primary/15 rounded-xl p-2.5">
+                      <p className="text-xs text-muted-foreground">加購小計</p>
+                      <p className="text-sm font-bold text-primary">+NT$ {addOnsTotal.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">報價 + 加購 = NT$ {grandTotal.toLocaleString()}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={goBack}>上一步</Button>
+                    <Button className="flex-1 min-h-[44px]" onClick={goNext}>下一步</Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Date/time (QUOTE_ONLY) */}
+              {confirmStep === 'datetime' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">請選擇預約日期與時段（共 {totalDuration} 分鐘）</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCalMonth(m => subMonths(m, 1))}>
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <span className="text-sm font-bold">{format(calMonth, 'yyyy年M月', { locale: zhTW })}</span>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCalMonth(m => addMonths(m, 1))}>
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-7">
+                      {['日','一','二','三','四','五','六'].map(d => (
+                        <div key={d} className="text-center text-[10px] text-muted-foreground py-1">{d}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-0.5">
+                      {Array.from({ length: startPad }).map((_, i) => <div key={`pad${i}`} />)}
+                      {calDays.map(day => {
+                        const isPast = isBefore(day, today)
+                        const isSel = selectedDate ? isSameDay(day, selectedDate) : false
+                        const isToday = isSameDay(day, new Date())
+                        return (
+                          <button key={day.toISOString()} disabled={isPast}
+                            onClick={() => { setSelectedDate(day); fetchSlots(day, totalDuration) }}
+                            className={`aspect-square rounded-lg text-xs font-medium transition-all flex items-center justify-center ${
+                              isPast ? 'text-muted-foreground/30 cursor-not-allowed'
+                                : isSel ? 'bg-primary text-white'
+                                : isToday ? 'bg-primary/15 text-primary font-semibold'
+                                : 'hover:bg-accent'
+                            }`}
+                          >
+                            {format(day, 'd')}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  {selectedDate && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">{format(selectedDate, 'M月d日', { locale: zhTW })} 可用時段</p>
+                      {slotsLoading ? <p className="text-xs text-muted-foreground text-center py-3">載入中...</p>
+                        : dayClosed ? <p className="text-xs text-muted-foreground text-center py-3">當天公休</p>
+                        : slots.length === 0 ? <p className="text-xs text-muted-foreground text-center py-3">當天已無可用時段</p>
+                        : (
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {slots.map(slot => (
+                              <button key={slot} onClick={() => setSelectedSlot(slot)}
+                                className={`min-h-[36px] rounded-lg text-xs font-medium transition-all border ${
+                                  selectedSlot === slot ? 'bg-primary text-white border-primary' : 'border-border hover:border-primary/50 hover:bg-accent'
+                                }`}
+                              >
+                                {slot}
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      }
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={goBack}>上一步</Button>
+                    <Button className="flex-1 min-h-[44px]" disabled={!selectedDate || !selectedSlot} onClick={goNext}>下一步</Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Summary + confirm */}
+              {confirmStep === 'confirm' && confirmQuote && (
+                <div className="space-y-3">
+                  <div className="bg-accent/30 rounded-xl p-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground">預約摘要</p>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-sm">
+                        <span>詢價款式</span>
+                        <span className="font-medium">NT$ {basePrice.toLocaleString()}</span>
+                      </div>
+                      {addOns.map(a => (
+                        <div key={a.id} className="flex justify-between text-sm text-muted-foreground">
+                          <span>{a.name}</span>
+                          <span>+NT$ {a.price.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between text-sm font-bold border-t border-border/50 pt-1.5">
+                        <span>總計</span>
+                        <span className="text-primary">NT$ {grandTotal.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    {confirmQuote.quoteMode === 'QUOTE_HOLD' && confirmQuote.holdDate && (
+                      <p className="text-xs text-muted-foreground pt-0.5">
+                        📅 {format(new Date(confirmQuote.holdDate), 'yyyy/MM/dd（EEEE）', { locale: zhTW })} {confirmQuote.holdTime}
+                      </p>
+                    )}
+                    {confirmQuote.quoteMode === 'QUOTE_ONLY' && selectedDate && selectedSlot && (
+                      <p className="text-xs text-muted-foreground pt-0.5">
+                        📅 {format(selectedDate, 'yyyy/MM/dd（EEEE）', { locale: zhTW })} {selectedSlot}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">LINE / IG（選填）</Label>
+                    <Input value={lineOrIg} onChange={e => setLineOrIg(e.target.value)} placeholder="@your_line_id" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">備註（選填）</Label>
+                    <Textarea value={bookingNotes} onChange={e => setBookingNotes(e.target.value)} rows={2} placeholder="有任何需要告知的事項..." />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={goBack}>上一步</Button>
+                    <Button className="flex-1 min-h-[44px]" onClick={handleConfirm} disabled={confirming}>
+                      {confirming ? '確認中...' : '確認預約'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        )
+      })()}
 
       {/* Decline dialog */}
       <AlertDialog open={!!declineQuote} onOpenChange={o => !o && setDeclineQuote(null)}>
