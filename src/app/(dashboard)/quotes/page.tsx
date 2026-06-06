@@ -237,13 +237,6 @@ export default function QuotesPage() {
                     </div>
                   </div>
                 </button>
-                <button
-                  onClick={e => { e.stopPropagation(); setDeleteId(q.id) }}
-                  className="absolute bottom-2.5 right-3 p-1.5 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-colors"
-                  title="刪除詢價"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
               </div>
             )
           })}
