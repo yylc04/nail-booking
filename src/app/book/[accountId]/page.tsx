@@ -5,7 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import {
   Sparkles, ShoppingCart, ChevronLeft, ChevronRight, Check, X,
   Wand2, Banknote, Plus, MapPin, MessageCircle, AtSign,
-  ExternalLink, ImageIcon, Grid3X3, Camera, User, CalendarClock, Lock,
+  ExternalLink, ImageIcon, Grid3X3, Camera, User, CalendarClock, Lock, CalendarCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -77,6 +77,8 @@ export default function BookPage() {
   const [transferCode, setTransferCode] = useState('')
   const [confirmingTransfer, setConfirmingTransfer] = useState(false)
   const [done, setDone] = useState(false)
+  const [quoteId, setQuoteId] = useState<string | null>(null)
+  const [quoteIsHold, setQuoteIsHold] = useState(false)
 
   const totalDuration = cart.reduce((s, i) => s + i.duration * i.qty, 0)
   const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0)
@@ -91,24 +93,43 @@ export default function BookPage() {
       setPortfolio(data.portfolio || [])
       setStoreInfoBlocks(data.storeInfoBlocks || [])
 
-      // Handle ?customService=自訂款式&customPrice=1800 from quote status page
+      // Handle quote flow URL params: ?customService=&customPrice=&quoteId=&quoteHoldDate=&quoteHoldTime=
       const customService = searchParams.get('customService')
       const customPrice = searchParams.get('customPrice')
+      const quoteIdParam = searchParams.get('quoteId')
+      const quoteHoldDate = searchParams.get('quoteHoldDate')
+      const quoteHoldTime = searchParams.get('quoteHoldTime')
       if (customService && customPrice) {
         const price = parseInt(customPrice, 10)
-        // Use first available service for id/duration fallback
         const firstSvc = cats.flatMap(c => c.services)[0]
-        if (firstSvc && !isNaN(price)) {
-          setCart([{ id: firstSvc.id, name: customService, price, duration: firstSvc.duration, qty: 1 }])
-          setStep(1) // skip service selection, go to date/time
-          // Clean URL params without navigation
-          const url = new URL(window.location.href)
-          url.searchParams.delete('customService')
-          url.searchParams.delete('customPrice')
-          url.searchParams.delete('customNote')
-          window.history.replaceState({}, '', url.toString())
+        if (!isNaN(price)) {
+          setCart([{
+            id: firstSvc?.id || '__quote__',
+            name: customService,
+            price,
+            duration: firstSvc?.duration || 60,
+            qty: 1,
+          }])
+          if (quoteHoldDate && quoteHoldTime) {
+            setSelectedDate(new Date(`${quoteHoldDate}T00:00:00`))
+            setSelectedSlot(quoteHoldTime)
+            setQuoteIsHold(true)
+            setStep(2)
+          } else {
+            setStep(1)
+          }
         }
       }
+      if (quoteIdParam) setQuoteId(quoteIdParam)
+      // Clean URL params
+      const url = new URL(window.location.href)
+      url.searchParams.delete('customService')
+      url.searchParams.delete('customPrice')
+      url.searchParams.delete('customNote')
+      url.searchParams.delete('quoteId')
+      url.searchParams.delete('quoteHoldDate')
+      url.searchParams.delete('quoteHoldTime')
+      window.history.replaceState({}, '', url.toString())
     })
     fetch(`/api/book/deposit-info?accountId=${accountId}`).then(r => r.json()).then(setDepositInfo)
   }, [accountId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -170,6 +191,7 @@ export default function BookPage() {
         name, phone, lineName, lineOrIg,
         date: format(selectedDate, 'yyyy-MM-dd'),
         startTime: selectedSlot, services, notes, accountId,
+        ...(quoteId ? { quoteId } : {}),
       }),
     })
     const data = await res.json()
@@ -200,6 +222,7 @@ export default function BookPage() {
     setStep(-1); setCart([]); setSelectedDate(null); setSelectedSlot(null)
     setDone(false); setShowDeposit(false); setApptId(''); setTransferCode('')
     setName(''); setPhone(''); setLineName(''); setLineOrIg(''); setNotes(''); setAgreedToNotes(false)
+    setQuoteId(null); setQuoteIsHold(false)
   }
 
   const today = startOfDay(new Date())
@@ -489,7 +512,7 @@ export default function BookPage() {
                 </Card>
               )}
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1 min-h-[48px]" onClick={() => setStep(0)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
+                <Button variant="outline" className="flex-1 min-h-[48px]" onClick={() => quoteId ? router.back() : setStep(0)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
                 <Button className="flex-1 min-h-[48px]" disabled={!selectedSlot} onClick={() => setStep(2)}>下一步 <ChevronRight className="w-4 h-4 ml-1" /></Button>
               </div>
             </div>
@@ -507,6 +530,12 @@ export default function BookPage() {
                       {cart.map(i => `${i.name}${i.qty > 1 ? ` x${i.qty}` : ''}`).join('、')} · {totalDuration}分鐘 · NT$ {totalPrice.toLocaleString()}
                     </p>
                   </div>
+                  {quoteIsHold && selectedDate && selectedSlot && (
+                    <div className="flex items-center gap-2 p-2.5 bg-blue-50 rounded-xl border border-blue-200">
+                      <CalendarCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                      <p className="text-xs text-blue-800">此時段已為您卡位：<strong>{format(selectedDate, 'M月d日', { locale: zhTW })} {selectedSlot}</strong></p>
+                    </div>
+                  )}
                   {depositInfo?.depositEnabled && (
                     <div className="flex items-center gap-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200">
                       <Banknote className="w-4 h-4 text-amber-600 shrink-0" />
@@ -548,7 +577,7 @@ export default function BookPage() {
                 </Card>
               )}
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1 min-h-[48px]" onClick={() => setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
+                <Button variant="outline" className="flex-1 min-h-[48px]" onClick={() => quoteIsHold ? router.back() : setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" /> 上一步</Button>
                 <Button className="flex-1 min-h-[48px] text-base" disabled={submitting || (!!store?.bookingNotes && !agreedToNotes)} onClick={handleSubmit}>
                   {submitting ? '送出中...' : '確認預約'}
                 </Button>

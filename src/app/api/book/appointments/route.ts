@@ -23,7 +23,7 @@ function minutesToTime(minutes: number): string {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { name, phone, lineName, lineOrIg, date, startTime, services, notes, transferCode, accountId } = body
+  const { name, phone, lineName, lineOrIg, date, startTime, services, notes, transferCode, accountId, quoteId } = body
 
   if (!name || !phone || !lineName || !lineOrIg || !date || !startTime || !services?.length) {
     return NextResponse.json({ error: '請填寫所有必填欄位' }, { status: 400 })
@@ -93,6 +93,23 @@ export async function POST(req: NextRequest) {
     },
     include: { services: true, customer: true },
   })
+
+  // Mark associated quote as CONFIRMED and tag appointment notes
+  if (quoteId) {
+    const quote = await prisma.quote.findFirst({
+      where: { id: quoteId, storeId },
+      select: { quoteNo: true },
+    })
+    if (quote) {
+      await prisma.quote.update({ where: { id: quoteId }, data: { status: 'CONFIRMED' } })
+      if (!notes) {
+        await prisma.appointment.update({
+          where: { id: appointment.id },
+          data: { notes: `來源：詢價 ${quote.quoteNo}` },
+        })
+      }
+    }
+  }
 
   return NextResponse.json(appointment)
 }
