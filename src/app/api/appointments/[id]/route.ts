@@ -37,7 +37,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (typeof body.transferCode === 'string' && Object.keys(body).length === 1) {
       await prisma.appointment.update({
         where: { id },
-        data: { transferCode: body.transferCode },
+        data: { transferCode: body.transferCode, status: 'PENDING' },
       })
       return NextResponse.json({ ok: true })
     }

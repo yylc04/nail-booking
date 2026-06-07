@@ -274,10 +274,29 @@ export default function AppointmentsPage() {
                           <p className="text-xs text-muted-foreground truncate">{a.services.map(s => s.serviceName).join('、')}</p>
                           <p className="text-xs font-medium text-primary mt-0.5">NT$ {a.totalPrice.toLocaleString()}</p>
                           {a.transferCode && (
-                            <p className="text-xs mt-1">
-                              <span className="text-muted-foreground">匯款末五碼：</span>
-                              <span className="font-mono font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">{a.transferCode}</span>
-                            </p>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              <p className="text-xs">
+                                <span className="text-muted-foreground">匯款末五碼：</span>
+                                <span className="font-mono font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">{a.transferCode}</span>
+                              </p>
+                              {a.status === 'PENDING' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                                  onClick={async () => {
+                                    const res = await fetch(`/api/appointments/${a.id}`, {
+                                      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ status: 'CONFIRMED' }),
+                                    })
+                                    if (res.ok) { toast.success('已確認收款'); fetchData() }
+                                    else toast.error('操作失敗')
+                                  }}
+                                >
+                                  <CheckCircle className="w-3 h-3" /> 確認收款
+                                </Button>
+                              )}
+                            </div>
                           )}
                         </div>
                         {/* Actions: top-right on all screens */}
@@ -290,28 +309,11 @@ export default function AppointmentsPage() {
                           </Button>
                         </div>
                       </div>
-                      {/* Status + confirm row */}
+                      {/* Status row */}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <Badge variant="outline" className={`text-xs ${STATUS_COLOR[a.status]}`}>
                           {STATUS_LABEL[a.status]}
                         </Badge>
-                        {a.transferCode && a.status === 'PENDING' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50"
-                            onClick={async () => {
-                              const res = await fetch(`/api/appointments/${a.id}`, {
-                                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: 'CONFIRMED' }),
-                              })
-                              if (res.ok) { toast.success('已確認收款'); fetchData() }
-                              else toast.error('操作失敗')
-                            }}
-                          >
-                            <CheckCircle className="w-3 h-3" /> 確認收款
-                          </Button>
-                        )}
                       </div>
                     </div>
                   </div>
