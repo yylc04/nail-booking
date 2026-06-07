@@ -784,7 +784,7 @@ export default function SettingsPage() {
 
       {/* ── Day modal ── */}
       <Dialog open={!!modal} onOpenChange={o => !o && setModal(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="w-[90vw] max-w-sm">
           <DialogHeader>
             <DialogTitle>{modal && format(modal.date, 'M月d日 EEEE', { locale: zhTW })}</DialogTitle>
           </DialogHeader>
@@ -836,7 +836,7 @@ export default function SettingsPage() {
 
       {/* ── Apply-to-month dialog ── */}
       <Dialog open={showApplyMonthDialog} onOpenChange={o => !o && !applyingMonth && setShowApplyMonthDialog(false)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="w-[90vw] max-w-sm">
           <DialogHeader><DialogTitle>套用預設時段到本月</DialogTitle></DialogHeader>
           <div className="space-y-3 py-1">
             <p className="text-sm text-muted-foreground">請選擇套用方式：</p>

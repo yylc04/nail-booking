@@ -622,7 +622,7 @@ export default function MemberPage() {
 
       {/* Image lightbox */}
       <Dialog open={!!lightboxSrc} onOpenChange={o => !o && setLightboxSrc(null)}>
-        <DialogContent className="max-w-sm p-2">
+        <DialogContent className="w-[90vw] max-w-sm p-2">
           {lightboxSrc && (
             <div className="aspect-square relative rounded-xl overflow-hidden">
               <Image src={lightboxSrc} alt="" fill className="object-contain" unoptimized />

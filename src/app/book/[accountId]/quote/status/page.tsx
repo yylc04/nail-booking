@@ -289,7 +289,7 @@ export default function QuoteStatusPage() {
 
       {/* Lightbox */}
       <Dialog open={!!lightboxSrc} onOpenChange={o => !o && setLightboxSrc(null)}>
-        <DialogContent className="max-w-sm p-2">
+        <DialogContent className="w-[90vw] max-w-sm p-2">
           {lightboxSrc && (
             <div className="aspect-square relative rounded-xl overflow-hidden">
               <Image src={lightboxSrc} alt="放大圖" fill className="object-contain" unoptimized />

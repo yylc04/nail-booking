@@ -324,7 +324,7 @@ export default function QuotesPage() {
 
       {/* Detail dialog */}
       <Dialog open={!!selected} onOpenChange={o => !o && setSelected(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[90vw] max-w-[480px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               <span>{selected?.quoteNo}</span>
@@ -518,7 +518,7 @@ export default function QuotesPage() {
 
       {/* Image lightbox */}
       <Dialog open={!!lightboxSrc} onOpenChange={o => !o && setLightboxSrc(null)}>
-        <DialogContent className="max-w-sm p-2">
+        <DialogContent className="w-[90vw] max-w-sm p-2">
           {lightboxSrc && (
             <div className="aspect-square relative rounded-xl overflow-hidden">
               <Image src={lightboxSrc} alt="放大圖" fill className="object-contain" unoptimized />

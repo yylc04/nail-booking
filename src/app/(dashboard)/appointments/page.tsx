@@ -326,7 +326,7 @@ export default function AppointmentsPage() {
 
       {/* Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-auto">
+        <DialogContent className="w-[90vw] max-w-[640px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? '編輯預約' : '新增預約'}</DialogTitle>
           </DialogHeader>

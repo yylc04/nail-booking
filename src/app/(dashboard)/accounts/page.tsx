@@ -234,7 +234,7 @@ export default function AccountsPage() {
 
       {/* Edit dialog */}
       <Dialog open={!!editing} onOpenChange={o => !o && setEditing(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[90vw] max-w-[480px]">
           <DialogHeader>
             <DialogTitle>編輯帳號資料：{editing?.username}</DialogTitle>
           </DialogHeader>
