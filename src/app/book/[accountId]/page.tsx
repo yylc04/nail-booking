@@ -173,13 +173,17 @@ export default function BookPage() {
 
   function addPortfolioToCart(item: PortfolioItem) {
     const catSvcs = categories.find(c => c.id === item.categoryId)?.services
-    if (!catSvcs || catSvcs.length === 0) {
-      toast('請至「服務項目」選擇服務')
-      return
+    if (catSvcs && catSvcs.length > 0) {
+      const svc = catSvcs[0]
+      const price = item.price ?? svc.price
+      addToCart({ id: svc.id, name: item.name, price, duration: svc.duration })
+    } else {
+      if (item.price == null) {
+        toast('此作品未設定價格，無法加入購物車')
+        return
+      }
+      addToCart({ id: `p_${item.id}`, name: item.name, price: item.price, duration: 0 })
     }
-    const svc = catSvcs[0]
-    const price = item.price ?? svc.price
-    addToCart({ id: svc.id, name: item.name, price, duration: svc.duration })
     toast.success(`已加入：${item.name}`)
   }
 
@@ -212,7 +216,7 @@ export default function BookPage() {
     if (store?.bookingNotes && !agreedToNotes) return toast.error('請先勾選同意注意事項')
     setSubmitting(true)
     const services = cart.flatMap(i =>
-      Array.from({ length: i.qty }, () => ({ serviceId: i.id, name: i.name, price: i.price, duration: i.duration }))
+      Array.from({ length: i.qty }, () => ({ serviceId: i.id.startsWith('p_') ? null : i.id, name: i.name, price: i.price, duration: i.duration }))
     )
     const res = await fetch('/api/book/appointments', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -889,6 +893,7 @@ export default function BookPage() {
                             e.stopPropagation()
                             addPortfolioToCart(item)
                           }}
+                          title="加入購物車"
                           className="absolute top-2 right-2 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -1019,7 +1024,7 @@ export default function BookPage() {
                     setLightboxItem(null)
                   }}
                 >
-                  加入預約
+                  加入購物車
                 </Button>
               </div>
             </>
